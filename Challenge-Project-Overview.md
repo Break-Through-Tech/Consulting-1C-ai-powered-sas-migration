@@ -1,8 +1,8 @@
 # AI-Powered SAS Migration
 
 **Company / Org:** Abt Global  
-**Challenge Advisor:** Anita Nti,anitanti77@gmail.com  
-**AI Studio Coach:** Nagalakshmi Pulivarthi,nagalakshmi.pulivarthi@breakthroughtech.org  
+**Challenge Advisor:** Parker Malek,parker_malek@yahoo.com  
+**AI Studio Coach:** Ananya Devarakonda,ananya.devarakonda@breakthroughtech.org
 **Program:** Break Through Tech AI Studio - Fall 2026
 
 ---
