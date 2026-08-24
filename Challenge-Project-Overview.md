@@ -1,8 +1,8 @@
 # AI-Powered SAS Migration
 
 **Company / Org:** Abt Global  
-**Challenge Advisor:** Parker Malek,parker_malek@yahoo.com  
-**AI Studio Coach:** Ananya Devarakonda,ananya.devarakonda@breakthroughtech.org
+**Challenge Advisor:** Parker Malek, parker_malek@yahoo.com    
+**AI Studio Coach:** Ananya Devarakonda, ananya.devarakonda@breakthroughtech.org     
 **Program:** Break Through Tech AI Studio - Fall 2026
 
 ---
@@ -57,7 +57,6 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 - Numerical and text data stored in SAS format, including legacy programs and datasets. 
 - The public data source is available at: https://qualitynet.cms.gov/inpatient/public-reporting/overall-ratings/software
 - No known limitations or preprocessing needed at this time.
-- [Link to data dictionary or documentation, if available]
   
 ### Data Exploration :
   
@@ -103,7 +102,7 @@ with print out from SAS procedures.
 - Agentic AI / Workflow AutomationCode Translation and Validation
   
 **Recommended Libraries:**  
-     pandas, scikit-learn, pyreadstat,numpy,scipy,statsmodels,pytest,datacompy,langchain/langgrapgh,pydantic,streamlit,Docker,markdown
+     pandas, scikit-learn, pyreadstat, numpy, scipy, statsmodels, pytest, datacompy, langchain/langgrapgh, pydantic, streamlit, Docker, markdown
   
  **Models and Techniques:**   
    - Pre-trained Large Language Models (LLMs) for code understanding, code generation, and documentation.     
@@ -149,6 +148,9 @@ Teams may find it useful to review documentation and tutorials covering:
 	- Automated software testing and data validation
   - LLM-generated technical documentation
 
+Get started with SAS:
+- SAS OnDemand for Academics (free) [main link](https://welcome.oda.sas.com/), [setup tutorial](https://support.sas.com/en/software/ondemand-for-academics-support.html)
+- Python Pandas vs SAS [reference](https://pandas.pydata.org/docs/getting_started/comparison/comparison_with_sas.html)
 
 *Feel free to explore beyond these, and share anything interesting you find with me!*
 
