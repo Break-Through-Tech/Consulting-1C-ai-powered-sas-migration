@@ -15,7 +15,7 @@
 | Donovan Mott      | @pmehta       | Model selection, hyperparameter tuning, model training and optimization  |
 | Erica Muragaki    | @chrispark    | Model evaluation, performance analysis, results interpretation           |
 | Kimberly Rodriguez| @chrispark    | Model evaluation, performance analysis, results interpretation           |
-| Amanda Wachuku    | @chrispark    | Model evaluation, performance analysis, results interpretation           |
+| Amanda Wachuku    | @codingqueen14| Model evaluation, performance analysis, results interpretation           |
 
 ---
 
