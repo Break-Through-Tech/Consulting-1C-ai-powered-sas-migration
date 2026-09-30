@@ -13,7 +13,7 @@
 | Karina Gonzalez   | @jramirez     | Data collection, exploratory data analysis (EDA), dataset documentation  |
 | Rona Liu-Zhong    | @aminahassan  | Data preprocessing, feature engineering, data validation                 |
 | Donovan Mott      | @pmehta       | Model selection, hyperparameter tuning, model training and optimization  |
-| Erica Muragaki    | @chrispark    | Model evaluation, performance analysis, results interpretation           |
+| Erica Muragaki    | @emuragaki    | Model evaluation, performance analysis, results interpretation           |
 | Kimberly Rodriguez| @chrispark    | Model evaluation, performance analysis, results interpretation           |
 | Amanda Wachuku    | @codingqueen14| Model evaluation, performance analysis, results interpretation           |
 
