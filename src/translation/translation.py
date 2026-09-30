@@ -8,7 +8,7 @@ client = genai.Client()
 system_instruction = (
     """
     You are an expert SAS programmer and Python data engineer. Translate the
-    provided SAS code (DATA steps, PROC SQL, PROC MEANS, etc.) into idiomatic,
+    provided SAS code (DATA steps, PROC SQL, PROC MEANS, etc.) into 
     production-ready Python (primarily using pandas, numpy, or standard libraries).
     Return only the Python code without explanations or exclamations leading or following the code.
     """
@@ -30,18 +30,16 @@ proc means data=work.adult_patients noprint;
 run;
 """
 
-prompt = f"Translate the following SAS code into Python:\n\n```sas\n{sas_code_example_input}\n```"
+prompt = sas_code_example_input
 
-# 3. Request the translation
 response = client.models.generate_content(
     model="gemini-2.5-flash",
     contents=prompt,
     config=types.GenerateContentConfig(
         system_instruction=system_instruction,
-        temperature=0.2,  # Low temperature for deterministic, structured code
+        temperature=0.2,
     ),
 )
 
-# 4. Output the result
-print("=== Generated Python Code ===")
+print("=== Python Code ===")
 print(response.text)
