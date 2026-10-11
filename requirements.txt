@@ -84,3 +84,4 @@ wcwidth==0.9.1
 websockets==16.1.1
 xxhash==4.0.1
 zstandard==0.25.0
+google-genai==2.29.0
