@@ -26,22 +26,20 @@ del _previous_module, _previous_spec
 import numpy as np
 import pandas as pd
 
-measure_OM_cnt = len(measure_OM)
-Outcome_mortality_res = grp_score(std_data_2025Jul_analysis, 'OM', measure_OM, measure_OM_cnt, 'R.Outcome_mortality')
-Outcome_mortality = Outcome_mortality_res['R.Outcome_mortality']
+import pandas as pd
+import numpy as np
 
-measure_OS_cnt = len(measure_OS)
-Outcome_safety_res = grp_score(std_data_2025Jul_analysis, 'OS', measure_OS, measure_OS_cnt, 'R.Outcome_safety')
-Outcome_safety = Outcome_safety_res['R.Outcome_safety']
+measure_OM_cnt = len(om_names)
+Outcome_mortality = grp_score(globals()[measure_analysis], "OM", measure_OM, measure_OM_cnt, "Outcome_mortality")
 
-measure_OR_cnt = len(measure_OR)
-Outcome_readmission_res = grp_score(std_data_2025Jul_analysis, 'OR', measure_OR, measure_OR_cnt, 'R.Outcome_readmission')
-Outcome_readmission = Outcome_readmission_res['R.Outcome_readmission']
+measure_OS_cnt = len(os_names)
+Outcome_safety = grp_score(globals()[measure_analysis], "OS", measure_OS, measure_OS_cnt, "Outcome_safety")
 
-measure_PtExp_cnt = len(measure_PtExp)
-PtExp_res = grp_score(std_data_2025Jul_analysis, 'PtExp', measure_PtExp, measure_PtExp_cnt, 'R.PtExp')
-PtExp = PtExp_res['R.PtExp']
+measure_OR_cnt = len(or_names)
+Outcome_readmission = grp_score(globals()[measure_analysis], "OR", measure_OR, measure_OR_cnt, "Outcome_readmission")
 
-measure_Process_cnt = len(measure_Process)
-Process_res = grp_score(std_data_2025Jul_analysis, 'Process', measure_Process, measure_Process_cnt, 'R.Process')
-Process = Process_res['R.Process']
+measure_PtExp_cnt = len(pt_names)
+PtExp_score = grp_score(globals()[measure_analysis], "PtExp", measure_PtExp, measure_PtExp_cnt, "PtExp")
+
+measure_Process_cnt = len(pc_names)
+Process_score = grp_score(globals()[measure_analysis], "Process", measure_Process, measure_Process_cnt, "Process")

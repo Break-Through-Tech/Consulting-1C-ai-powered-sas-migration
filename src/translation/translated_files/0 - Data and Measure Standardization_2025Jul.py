@@ -26,101 +26,110 @@ del _previous_module, _previous_spec
 import numpy as np
 import pandas as pd
 
-path1 = r"\\...\Starrating"
-path2 = r"C:\Users\...\2025 Jul\SAS output"
-path3 = r"C:\Users\...\2025 Jul\SAS pack"
+import pandas as pd
+import numpy as np
+
+path1 = "translation/sas_files"
+path2 = "translation/sas_files"
+path3 = "translation/sas_files"
 
 year = 2025
 quarter = "Jul"
 
-measure_all = [
-    'MORT_30_AMI', 'MORT_30_CABG', 'MORT_30_COPD', 'MORT_30_HF', 'MORT_30_PN', 'MORT_30_STK', 'PSI_4_SURG_COMP',
-    'COMP_HIP_KNEE', 'HAI_1', 'HAI_2', 'HAI_3', 'HAI_4', 'HAI_5', 'HAI_6', 'PSI_90_SAFETY',
-    'EDAC_30_AMI', 'EDAC_30_HF', 'EDAC_30_PN', 'OP_32', 'READM_30_CABG', 'READM_30_COPD', 'READM_30_HIP_KNEE', 
-    'READM_30_HOSP_WIDE', 'OP_35_ADM', 'OP_35_ED', 'OP_36',
-    'H_COMP_1_STAR_RATING', 'H_COMP_2_STAR_RATING', 'H_COMP_3_STAR_RATING', 'H_COMP_5_STAR_RATING', 
-    'H_COMP_6_STAR_RATING', 'H_COMP_7_STAR_RATING', 'H_GLOB_STAR_RATING', 'H_INDI_STAR_RATING',
-    'HCP_COVID_19', 'IMM_3', 'OP_10', 'OP_13', 'OP_18B', 'OP_22', 'OP_23', 'OP_29', 'OP_8', 'PC_01', 
-    'SAFE_USE_OF_OPIOIDS', 'SEP_1'
+measure_mean = f"measure_average_stddev_{year}{quarter}"
+measure_analysis = f"Std_data_{year}{quarter}_analysis"
+results_ds = f"Star_{year}{quarter}"
+national_mean = f"national_average_{year}{quarter}"
+
+measure_all_list = [
+    "MORT_30_AMI", "MORT_30_CABG", "MORT_30_COPD", "MORT_30_HF", "MORT_30_PN", "MORT_30_STK", "PSI_4_SURG_COMP",
+    "COMP_HIP_KNEE", "HAI_1", "HAI_2", "HAI_3", "HAI_4", "HAI_5", "HAI_6", "PSI_90_SAFETY",
+    "EDAC_30_AMI", "EDAC_30_HF", "EDAC_30_PN", "OP_32", "READM_30_CABG", "READM_30_COPD", "READM_30_HIP_KNEE", "READM_30_HOSP_WIDE", "OP_35_ADM", "OP_35_ED", "OP_36",
+    "H_COMP_1_STAR_RATING", "H_COMP_2_STAR_RATING", "H_COMP_3_STAR_RATING", "H_COMP_5_STAR_RATING", "H_COMP_6_STAR_RATING", "H_COMP_7_STAR_RATING", "H_GLOB_STAR_RATING", "H_INDI_STAR_RATING",
+    "HCP_COVID_19", "IMM_3", "OP_10", "OP_13", "OP_18B", "OP_22", "OP_23", "OP_29", "OP_8", "PC_01", "SAFE_USE_OF_OPIOIDS", "SEP_1"
 ]
 
-if 'HC_Alldata_2025Jul' in globals():
-    all_data = HC_Alldata_2025Jul.copy()
-else:
-    all_data = pd.DataFrame(columns=['provider_id'] + measure_all)
+all_data_file = f"{path1}/Alldata_{year}{quarter}.csv"
+try:
+    all_data_2025Jul = pd.read_csv(all_data_file)
+except Exception:
+    all_data_2025Jul = pd.DataFrame(columns=['provider_id'] + measure_all_list)
 
-measure_volume0 = all_data[measure_all].notna().sum().reset_index()
-measure_volume0.columns = ['_NAME_', 'COL1']
+measure_volume0 = pd.DataFrame({
+    'freq': [all_data_2025Jul[m].notna().sum() if m in all_data_2025Jul.columns else 0 for m in measure_all_list]
+}, index=measure_all_list)
 
-measure_volume_t0 = measure_volume0.set_index('_NAME_').T.reset_index(drop=True)
+include_measure0 = measure_volume0.reset_index().rename(columns={'index': 'measure_in_name', 'freq': 'freq'})
+include_measure0['measure_in_std'] = 'std_' + include_measure0['measure_in_name'].astype(str)
 
-include_measure0_list = []
-for col in measure_all:
-    if col in measure_volume0['_NAME_'].values:
-        freq = measure_volume0.loc[measure_volume0['_NAME_'] == col, 'COL1'].values[0]
-        include_measure0_list.append({
-            'measure_in_name': col,
-            'measure_in_std': f'std_{col}',
-            'freq': freq
-        })
-
-include_measure0 = pd.DataFrame(include_measure0_list)
-measure_in = include_measure0['measure_in_name'].tolist()
-measure_cnt = len(measure_in)
+measure_in = " ".join(include_measure0['measure_in_name'].tolist())
+measure_cnt = len(include_measure0)
 
 measure_volume = measure_volume0.copy()
-measure_volume_t = measure_volume_t0.copy()
 
-less100_measure = include_measure0[include_measure0['freq'] <= 100].copy()
-less100_measure = less100_measure.rename(columns={'measure_in_name': 'measure_name'})
-less100_measure = less100_measure[['measure_name', 'freq']]
-
-measure_exclude = less100_measure['measure_name'].tolist()
+less100_measure = measure_volume[measure_volume['freq'] <= 100].reset_index().rename(columns={'index': 'measure_name', 'freq': 'freq'})
+measure_exclude = " ".join(less100_measure['measure_name'].tolist())
 nobs = len(less100_measure)
 
-initial_data_2025Jul = all_data.copy()
-if nobs > 0 and measure_exclude:
-    initial_data_2025Jul = initial_data_2025Jul.drop(columns=[m for m in measure_exclude if m in initial_data_2025Jul.columns])
+initial_data_2025Jul = all_data_2025Jul.copy()
+if nobs > 0 and measure_exclude.strip() != "":
+    cols_to_drop = measure_exclude.split()
+    initial_data_2025Jul = initial_data_2025Jul.drop(columns=[c for c in cols_to_drop if c in initial_data_2025Jul.columns])
 
-include_measure = include_measure0[include_measure0['freq'] > 100].copy()
-measure_in = include_measure['measure_in_name'].tolist()
-measure_in_std = include_measure['measure_in_std'].tolist()
-measure_cnt = len(measure_in)
+include_measure = measure_volume[measure_volume['freq'] > 100].reset_index().rename(columns={'index': 'measure_in_name', 'freq': 'freq'})
+include_measure['measure_in_std'] = 'std_' + include_measure['measure_in_name'].astype(str)
 
-om_list = ['MORT_30_AMI', 'MORT_30_CABG', 'MORT_30_COPD', 'MORT_30_HF', 'MORT_30_PN', 'MORT_30_STK', 'PSI_4_SURG_COMP']
-os_list = ['COMP_HIP_KNEE', 'HAI_1', 'HAI_2', 'HAI_3', 'HAI_4', 'HAI_5', 'HAI_6', 'PSI_90_SAFETY']
-or_list = ['EDAC_30_AMI', 'EDAC_30_HF', 'EDAC_30_PN', 'OP_32', 'READM_30_CABG', 'READM_30_COPD', 'READM_30_HIP_KNEE', 'READM_30_HOSP_WIDE', 'OP_35_ADM', 'OP_35_ED', 'OP_36']
-pt_list = ['H_COMP_1_STAR_RATING', 'H_COMP_2_STAR_RATING', 'H_COMP_3_STAR_RATING', 'H_COMP_5_STAR_RATING', 'H_COMP_6_STAR_RATING', 'H_COMP_7_STAR_RATING', 'H_GLOB_STAR_RATING', 'H_INDI_STAR_RATING']
-proc_list = ['HCP_COVID_19', 'IMM_3', 'OP_10', 'OP_13', 'OP_18B', 'OP_22', 'OP_23', 'OP_29', 'OP_8', 'PC_01', 'SAFE_USE_OF_OPIOIDS', 'SEP_1']
+measure_in = " ".join(include_measure['measure_in_name'].tolist())
+measure_in_std = " ".join(include_measure['measure_in_std'].tolist())
+measure_cnt = len(include_measure)
 
-def get_std_subset(names):
-    return [f'std_{m}' for m in names if m in measure_in]
+om_names = ['MORT_30_AMI', 'MORT_30_CABG', 'MORT_30_COPD', 'MORT_30_HF', 'MORT_30_PN', 'MORT_30_STK', 'PSI_4_SURG_COMP']
+os_names = ['COMP_HIP_KNEE', 'HAI_1', 'HAI_2', 'HAI_3', 'HAI_4', 'HAI_5', 'HAI_6', 'PSI_90_SAFETY']
+or_names = ['EDAC_30_AMI', 'EDAC_30_HF', 'EDAC_30_PN', 'OP_32', 'READM_30_CABG', 'READM_30_COPD', 'READM_30_HIP_KNEE', 'READM_30_HOSP_WIDE', 'OP_35_ADM', 'OP_35_ED', 'OP_36']
+pt_names = ['H_COMP_1_STAR_RATING', 'H_COMP_2_STAR_RATING', 'H_COMP_3_STAR_RATING', 'H_COMP_5_STAR_RATING', 'H_COMP_6_STAR_RATING', 'H_COMP_7_STAR_RATING', 'H_GLOB_STAR_RATING', 'H_INDI_STAR_RATING']
+pc_names = ['HCP_COVID_19', 'IMM_3', 'OP_10', 'OP_13', 'OP_18B', 'OP_22', 'OP_23', 'OP_29', 'OP_8', 'PC_01', 'SAFE_USE_OF_OPIOIDS', 'SEP_1']
 
-measure_OM = get_std_subset(om_list)
-measure_OS = get_std_subset(os_list)
-measure_OR = get_std_subset(or_list)
-measure_PtExp = get_std_subset(pt_list)
-measure_Process = get_std_subset(proc_list)
+def filter_group(names):
+    sub = measure_volume.loc[measure_volume.index.isin(names)]
+    sub = sub[sub['freq'] > 100]
+    std_list = ['std_' + idx for idx in sub.index]
+    return " ".join(std_list)
+
+measure_OM = filter_group(om_names)
+nmeasure_OM = len(om_names)
+
+measure_OS = filter_group(os_names)
+nmeasure_OS = len(os_names)
+
+measure_OR = filter_group(or_names)
+nmeasure_OR = len(or_names)
+
+measure_PtExp = filter_group(pt_names)
+nmeasure_PtExp = len(pt_names)
+
+measure_Process = filter_group(pc_names)
+nmeasure_Process = len(pc_names)
 
 initial_data_2025Jul = keep_hos(initial_data_2025Jul, measure_in, measure_cnt)
 
-measure_mean_df = initial_data_2025Jul[measure_in].describe().reset_index()
+measure_in_list = measure_in.split()
+globals()[measure_mean] = initial_data_2025Jul[measure_in_list].describe().T.reset_index()
 
 std_data_2025Jul = initial_data_2025Jul.copy()
-for m in measure_in:
-    s = std_data_2025Jul[m]
-    mean_val = s.mean()
-    std_val = s.std(ddof=1)
-    if std_val != 0 and not pd.isna(std_val):
-        std_data_2025Jul[m] = (s - mean_val) / std_val
-    else:
-        std_data_2025Jul[m] = 0.0
+for m in measure_in_list:
+    if m in std_data_2025Jul.columns:
+        col_data = std_data_2025Jul[m]
+        mean_v = col_data.mean()
+        std_v = col_data.std(ddof=1)
+        if std_v != 0 and pd.notna(std_v):
+            std_data_2025Jul[m] = (col_data - mean_v) / std_v
+        else:
+            std_data_2025Jul[m] = 0.0
 
 flip_measures = [
     'MORT_30_AMI', 'MORT_30_CABG', 'MORT_30_COPD', 'MORT_30_HF', 'MORT_30_PN', 'MORT_30_STK', 'PSI_4_SURG_COMP',
     'COMP_HIP_KNEE', 'HAI_1', 'HAI_2', 'HAI_3', 'HAI_4', 'HAI_5', 'HAI_6', 'PSI_90_SAFETY',
-    'EDAC_30_AMI', 'EDAC_30_HF', 'EDAC_30_PN', 'OP_32', 'READM_30_CABG', 'READM_30_COPD', 'READM_30_HIP_KNEE', 
-    'READM_30_HOSP_WIDE', 'OP_35_ADM', 'OP_35_ED', 'OP_36',
+    'EDAC_30_AMI', 'EDAC_30_HF', 'EDAC_30_PN', 'OP_32', 'READM_30_CABG', 'READM_30_COPD', 'READM_30_HIP_KNEE', 'READM_30_HOSP_WIDE', 'OP_35_ADM', 'OP_35_ED', 'OP_36',
     'OP_22', 'PC_01', 'OP_18B', 'OP_8', 'OP_10', 'OP_13', 'SAFE_USE_OF_OPIOIDS'
 ]
 
@@ -128,9 +137,14 @@ for m in flip_measures:
     if m in std_data_2025Jul.columns:
         std_data_2025Jul[m] = -std_data_2025Jul[m]
 
-std_data_2025Jul_analysis = std_data_2025Jul.copy()
-for m, std_m in zip(measure_in, measure_in_std):
-    if m in std_data_2025Jul_analysis.columns:
-        std_data_2025Jul_analysis[std_m] = std_data_2025Jul_analysis[m]
+measure_in_std_list = measure_in_std.split()
+analysis_df = std_data_2025Jul.copy()
+for i, m in enumerate(measure_in_list):
+    if i < len(measure_in_std_list):
+        std_col = measure_in_std_list[i]
+        analysis_df[std_col] = analysis_df[m]
 
-std_data_2025Jul_analysis = std_data_2025Jul_analysis.drop(columns=measure_in)
+drop_cols = measure_in_list + [c for c in analysis_df.columns if c in ['i']]
+analysis_df = analysis_df.drop(columns=[c for c in drop_cols if c in analysis_df.columns])
+
+globals()[measure_analysis] = analysis_df
