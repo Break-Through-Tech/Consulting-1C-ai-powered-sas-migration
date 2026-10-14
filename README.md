@@ -9,7 +9,7 @@
 | Name              | GitHub Handle | Contribution                                                             |
 |-------------------|---------------|--------------------------------------------------------------------------|
 | Jake Cordon       | @taylornguyen | Data exploration, visualization, overall project coordination            |
-| Asmita Dulla      | @taylornguyen | Data exploration, visualization, overall project coordination            |
+| Asmita Dulla      | @asmitadulla  | Data exploration, visualization, overall project coordination            |
 | Karina Gonzalez   | @jramirez     | Data collection, exploratory data analysis (EDA), dataset documentation  |
 | Rona Liu-Zhong    | @aminahassan  | Data preprocessing, feature engineering, data validation                 |
 | Donovan Mott      | @pmehta       | Model selection, hyperparameter tuning, model training and optimization  |
