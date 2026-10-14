@@ -12,9 +12,9 @@
 *****************************************************;
 
 /*This file is used to derive analysis data 'Std_data_2025Jul_analysis', which will be used in programs 1 and 2*/
-%LET PATH1=\\...\Starrating; /* For 2025 Jul released data, MUST BE CHANGED */
-%LET PATH2=C:\Users\...\2025 Jul\SAS output;/* For derived data sets, MUST BE CHANGED */
-%LET PATH3=C:\Users\...\2025 Jul\SAS pack;  /* For SAS macros , MUST BE CHANGED  */
+%LET PATH1=translation\sas_files; /* For 2025 Jul released data, MUST BE CHANGED */
+%LET PATH2=translation\sas_files;/* For derived data sets, MUST BE CHANGED */
+%LET PATH3=translation\sas_files;  /* For SAS macros , MUST BE CHANGED  */
 
 LIBNAME HC "&PATH1";
 LIBNAME R "&PATH2";

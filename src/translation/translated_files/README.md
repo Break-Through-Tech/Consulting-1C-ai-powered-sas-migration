@@ -1,80 +1,56 @@
-# Hospital Star Rating Calculation Pipeline: SAS to Python Translation
+# CMS Hospital Star Rating Pipeline - Python Translation Documentation
 
-This project is a modular Python port of a four-part SAS program pipeline designed to calculate CMS Hospital Star Ratings. The workflow standardizes measure data, computes group (domain) scores using unweighted averages, combines these group scores into an overall weighted summary score, applies reporting eligibility criteria, and assigns final star ratings using *k*-means clustering across peer groups.
+This document explains the Python port of the SAS-based CMS Hospital Star Rating calculation programs for the July 2025 release.
 
----
+## Overview of Python Modules
 
-## Architecture and Module Execution Order
+The pipeline is split into five sequentially executed Python modules:
 
-The pipeline is organized into five independently runnable yet sequentially dependent Python scripts. Each script builds upon variables, macros, or dataset outputs established by previous modules.
-
-```
-Star_Macros.py
-  └──> 0 - Data and Measure Standardization_2025Jul.py
-         └──> 1 - First stage_Simple Average of Measure Scores_2025Jul.py
-                └──> 2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py
-                       └──> translated_pipeline.py (Orchestrator)
-```
-
-### 1. `Star_Macros.py`
-* **Purpose:** Serves as the macro library for the pipeline. It defines reusable core operations as Python functions equivalent to SAS macros.
-* **Key Functions:**
-  * `keep_hos`: Filters out hospitals that do not have at least one valid measure.
-  * `grp_score`: Computes domain scores, counts valid measures per domain, calculates measure weights, standardizes scores to mean=0 and std=1, and merges back summary statistics.
-  * `report`: Evaluates reporting eligibility criteria based on measure counts per domain (e.g., requiring at least 3 measures in at least 3 domains, including at least one mortality or safety domain).
-  * `kmeans_clust`: Implements a two-pass *k*-means clustering routine (using `sklearn.cluster.KMeans`) seeded with quintile medians, refines cluster assignments, sorts clusters by mean summary score, and maps them to Star ratings (1 through 5).
-  * `nation_avg0`, `nation_avg_peer`, `nation_avg`: Calculates national average summary scores overall, by peer group, and by individual domain groups for reporting and QA.
-
-### 2. `0 - Data and Measure Standardization_2025Jul.py`
-* **Purpose:** Ingests raw hospital measure data (`HC.Alldata_2025Jul`), applies volume-based exclusion criteria (dropping measures with $\le 100$ hospitals), categorizes measures into outcome and process domains, standardizes original measure values, and flips negative-direction measures so higher scores consistently represent better performance.
-* **Outputs:** 
-  * `initial_data_2025Jul` (filtered raw data)
-  * `std_data_2025Jul_analysis` (fully standardized analysis-ready dataset)
-  * Domain measure lists (`measure_OM`, `measure_OS`, `measure_OR`, `measure_PtExp`, `measure_Process`)
-
-### 3. `1 - First stage_Simple Average of Measure Scores_2025Jul.py`
-* **Purpose:** Computes the simple average group (domain) scores for each hospital across the five quality domains: Outcomes-Mortality, Outcomes-Safety, Outcomes-Readmission, Patient Experience, and Timely and Effective Care.
-* **Outputs:** 
-  * `Outcome_mortality`, `Outcome_safety`, `Outcome_readmission`, `PtExp`, `Process` (DataFrames containing standardized group scores per provider).
-
-### 4. `2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py`
-* **Purpose:** Merges all domain scores into a single dataset, calculates an overall hospital summary score using CMS fixed standard weights (Patient Experience: 0.22, Readmission: 0.22, Mortality: 0.22, Safety: 0.22, Process: 0.12) with dynamic weight redistribution for missing domains, determines hospital reporting indicators, and applies *k*-means clustering grouped by the number of valid measurement domains to assign final 1–5 Star ratings.
-* **Outputs:** 
-  * `star_2025Jul` (final hospital-level star rating dataset)
-  * `national_average_2025Jul` (national benchmark summary scores and peer group means)
-
-### 5. `translated_pipeline.py`
-* **Purpose:** Acts as the top-level orchestrator script. It provides the automated environment loader that sequences the execution of passes 1 through 4, ensuring all workspace variables are passed correctly between modules.
+1. **`Star_Macros.py`**: Translates all core reusable SAS macros (`keep_hos`, `grp_score`, `report`, `kmeans`, `nation_avg0`, `nation_avg_peer`, and `nation_avg`) into Python functions.
+2. **`0 - Data and Measure Standardization_2025Jul.py`**: Performs volume-based exclusions ($\le 100$ hospitals), filters and categorizes measures into domains, applies hospital inclusion checks, and standardizes and direction-flips measure scores.
+3. **`1 - First stage_Simple Average of Measure Scores_2025Jul.py`**: Invokes domain score calculations via `grp_score` for all five quality groups: Mortality, Safety, Readmission, Patient Experience, and Timely/Effective Care.
+4. **`2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py`**: Merges group scores, computes weighted summary scores with weight redistribution for missing groups, applies reporting criteria, runs peer-grouped K-means clustering to assign Star ratings, and aggregates national averages.
+5. **`translated_pipeline.py`**: An orchestration module that imports and executes all prior modules in sequence to produce the complete analysis datasets in Python.
 
 ---
 
-## Dependencies and Requirements
+## Execution Dependency and Workflow
+
+The modules build upon each other in a strictly ordered pipeline:
+
+- `Star_Macros.py` must be loaded first to provide all macro functions.
+- `0 - Data and Measure Standardization_2025Jul.py` loads `Star_Macros.py` and creates standardized base files (`Std_data_2025Jul_analysis`).
+- `1 - First stage_Simple Average of Measure Scores_2025Jul.py` runs after standardization and depends on domain definitions.
+- `2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py` depends on both standardization and domain scores, generating the final hospital-level star rating table and national average summaries.
+- `translated_pipeline.py` ties everything together into a unified execution flow.
+
+---
+
+## Required Dependencies and External Data Files
 
 ### Python Packages
-* `pandas`: For tabular data manipulation, merging, aggregation, and pivoting.
-* `numpy`: For numerical operations, array manipulations, and handling missing values (`np.nan`).
-* `scikit-learn` (`sklearn.cluster.KMeans`): Used in place of SAS `PROC FASTCLUS` to execute *k*-means clustering with specified initial seeds and convergence parameters.
+- `pandas`
+- `numpy`
+- `scikit-learn` (`KMeans`)
 
-### Required Data Files
-* The pipeline expects raw hospital data to be available in the workspace environment (or loaded via external connectors matching the SAS `HC.Alldata_2025Jul` library reference).
-* Expected input columns include `provider_id` alongside all listed measure columns (e.g., `MORT_30_AMI`, `COMP_HIP_KNEE`, `H_COMP_1_STAR_RATING`, etc.).
+### External Data Files
+The scripts expect a directory structure matching the SAS setup (`translation/sas_files/`), specifically:
+- `Alldata_2025Jul.csv` (representing raw Hospital Compare data files).
+
+---
+
+## Discrepancies and Unresolved Behaviors
+
+1. **SAS Dataset Storage vs. Python Globals**: SAS macro variables and permanent datasets (`LIBNAME R`) are simulated in Python by storing data frames in module-level global variables or returning them explicitly from functions.
+2. **FASTCLUS and PROC UNIVARIATE**: SAS's `FASTCLUS` procedure with specific convergence and seed options is translated using `sklearn.cluster.KMeans` initialized with quintile medians as seeds. Minor differences in clustering iterations or convergence tolerances between SAS and scikit-learn may yield slight variations in boundary cases.
+3. **Paths**: Path macros (`PATH1`, `PATH2`, `PATH3`) default to `translation/sas_files`. Users must ensure input CSV files exist at these locations.
 
 ---
 
 ## How to Run the Pipeline
 
-1. Ensure all required Python packages (`pandas`, `numpy`, `scikit-learn`) are installed in your Python environment.
-2. Place all generated modules (`Star_Macros.py`, `0 - Data and Measure Standardization_2025Jul.py`, `1 - First stage_Simple Average of Measure Scores_2025Jul.py`, `2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py`, and `translated_pipeline.py`) in the same working directory.
-3. Execute the orchestrator script:
-   ```bash
-   python translated_pipeline.py
-   ```
-4. Each script executes sequentially upon import/load, reproducing the data transformations, intermediate datasets, and final outputs defined in the original SAS programs.
+To execute the entire end-to-end translation pipeline and reproduce the star ratings and summary statistics, run the orchestrator script:
 
----
-
-## Discrepancies and Unresolved SAS Behavior
-
-* **SAS Procedures vs. Python Libraries:** SAS-specific procedures such as `PROC FASTCLUS`, `PROC STANDARD`, `PROC TRANSPOSE`, and `PROC TABULATE` have been translated into equivalent pandas DataFrame methods, NumPy calculations, and `scikit-learn`'s `KMeans` estimator. While mathematical logic is preserved, minor floating-point discrepancies can occur due to differences between SAS's proprietary optimization routines and Python's underlying numerical engines.
-* **Macro Variables and Paths:** Hardcoded SAS file paths (e.g., `\\...\Starrating`, `C:\Users\...`) and dynamic symbol table references (`%LET`, `SYMPUTX`) have been translated into standard Python string variables and function arguments.
-* **Environment State:** The SAS implementation relies on persistent library storage (`LIBNAME R`). The Python translation replicates this by maintaining state within global dictionaries and pandas DataFrames shared across imported module namespaces.
+```bash
+python translated_pipeline.py
+```
