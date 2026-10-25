@@ -1,4 +1,6 @@
 import sys
+import inspect
+import traceback
 from pathlib import Path
 import importlib.util
 import pandas as pd
@@ -6,7 +8,7 @@ import pandas as pd
 SRC_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC_DIR))
 from translation.translation import translate_sas_files
-from validation.validation import compare_dataframe
+from validation.validation import compare_dataframe, ValidationResult
 from orchestrator.repair import decide_next_action
 from reporting.logger import log_results
 
@@ -65,6 +67,18 @@ def run_stage(stage_path: Path) -> object:
     return module
 
 
+def clear_stage_modules() -> None:
+    """
+    Forget every stage module loaded by a previous attempt. Each translated
+    file loads the stage before it through sys.modules, so without this a
+    retry could silently reuse the previous attempt's version of a stage.
+    """
+    stale = [name for name in sys.modules
+             if name.startswith(("_translated_sas_stage_", "_pipeline_stage_"))]
+    for name in stale:
+        del sys.modules[name]
+
+
 # ALL AT ONCE: translate all 4 files together (needed so variables from
 # stage 0 correctly feed into stage 1, stage 2, etc. via the shared chat
 # session in translate_sas_files()). If anything fails validation, we
@@ -94,19 +108,40 @@ def build_issue_report(all_results: dict[str, dict]) -> dict[str, list[str]]:
     return issues_by_stage
 
 
+def translator_accepts_feedback() -> bool:
+    """True once translate_sas_files() has a `feedback` parameter (issue #32)."""
+    return "feedback" in inspect.signature(translate_sas_files).parameters
+
+
+def call_translator(issue_report: dict[str, list[str]]) -> None:
+    """
+    Translate all stages. The first attempt has no issue report; on a retry,
+    pass the previous attempt's issues so the translator can make targeted
+    fixes. Until #32 adds the `feedback` parameter, fall back to a blind retry.
+    """
+    if not issue_report:
+        translate_sas_files()
+    elif translator_accepts_feedback():
+        print(f"Retranslating with feedback on {len(issue_report)} stage(s).")
+        translate_sas_files(feedback=issue_report)
+    else:
+        print("translate_sas_files() doesn't accept feedback yet (#32), so this retry is blind.")
+        translate_sas_files()
+
+
 attempt = 1
+issue_report = {}             # empty on the first attempt; filled from each attempt's failures
+previous_failure_count = None  # failure count from the last attempt, to detect a retry that didn't help
 while attempt <= MAX_ATTEMPTS:
     print(f"\nTranslation + validation attempt {attempt}/{MAX_ATTEMPTS}")
-    
+
     if SKIP_TRANSLATION_FOR_TESTING:
         print("SKIP_TRANSLATION_FOR_TESTING is on — using existing files in translated_files/, no API call made.")
     else:
-        translate_sas_files()  # TODO: once translation.py supports it, pass feedback here on attempt > 1:
-                                # translate_sas_files(feedback=issue_report) if attempt > 1 else translate_sas_files()
+        call_translator(issue_report)
 
-    
-    # translate_sas_files()  # TODO: once translation.py supports it, pass feedback here on attempt > 1:
-                            # translate_sas_files(feedback=issue_report) if attempt > 1 else translate_sas_files()
+    # start each attempt from a clean slate so the freshly translated files are the ones that run
+    clear_stage_modules()
 
     translated_paths = sorted(TRANSLATED_DIR.glob("*.py"))
     stage_paths = [p for p in translated_paths if p.suffix == ".py" and p.name != "translated_pipeline.py"]
@@ -118,7 +153,19 @@ while attempt <= MAX_ATTEMPTS:
             module = run_stage(stage_path)
         except Exception as exc:
             print(f"ERROR running {stage_path.name}: {exc}")
-            all_results[stage_path.name] = {}
+            # Keep the last few traceback lines (file, line number, error) as feedback for retranslation
+            traceback_tail = traceback.format_exc().strip().splitlines()[-3:]
+            crash_result = ValidationResult(
+                stage_name=stage_path.name,
+                variable_name="__execution__",
+                reference_path=None,
+                passed=False,
+                row_count_actual=0,
+                row_count_expected=0,
+                notes=[f"Stage crashed: {type(exc).__name__}: {exc}", *traceback_tail],
+            )
+            all_results[stage_path.name] = {"__execution__": crash_result}
+            log_results(all_results[stage_path.name], stage_path.name, LOG_DIR)
             continue
 
         stage_validations[stage_path.name] = auto_match_stage_outputs(module)
@@ -143,14 +190,15 @@ while attempt <= MAX_ATTEMPTS:
         for stage, stage_result in all_results.items()
         for var, r in stage_result.items()
     }
-    decision = decide_next_action(flat_results, "full pipeline", attempt, MAX_ATTEMPTS)
+    decision = decide_next_action(
+        flat_results, "full pipeline", attempt, MAX_ATTEMPTS,
+        translation_skipped=SKIP_TRANSLATION_FOR_TESTING,
+        previous_failure_count=previous_failure_count,
+    )
 
     if decision.action != "retry":
         break
 
     print(f"Retrying with feedback on {len(issue_report)} stage(s): {list(issue_report)}")
+    previous_failure_count = sum(not r.passed for r in flat_results.values())
     attempt += 1
-    # NOTE: issue_report is ready to pass into translate_sas_files(feedback=...)
-    # once translation.py supports accepting per-stage feedback. For now,
-    # translate_sas_files() is called again at the top of the loop with no
-    # feedback, which is a known limitation (see TODO #2.1 / #4).
