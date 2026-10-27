@@ -5,3 +5,4 @@
 __pycache__/
 logs/
 src/orchestrator/actual_output/
+.venv/
