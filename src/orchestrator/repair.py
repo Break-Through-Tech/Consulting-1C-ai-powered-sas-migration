@@ -7,17 +7,26 @@ class RepairDecision:
     reason: str
 
 
-def decide_next_action(result: dict, stage_name: str, attempt: int = 1, max_attempts: int = 2) -> RepairDecision:
+def decide_next_action(
+    result: dict,
+    stage_name: str,
+    attempt: int = 1,
+    max_attempts: int = 2,
+    translation_skipped: bool = False,
+    previous_failure_count: int | None = None,
+) -> RepairDecision:
     """
-    TENTATIVE decision logic. Real retry logic (re-calling translation
-    with specific failure feedback) doesn't exist yet -- that requires
-    compare_dataframe to be a trustworthy, real comparison first (it's
-    still a row-count/column-name placeholder), and requires
-    translation.py to support re-translating a single stage.
+    Decide whether to continue, retry, or halt after an attempt.
 
-    For now: classify the outcome and say what *should* happen, without
-    actually performing a retry. The orchestrator can act on this
-    decision once the real retry mechanism exists.
+    Retry only when another translation could plausibly do better:
+    - continue if every check passed
+    - halt if translation was skipped, since a retry would rerun identical files
+    - halt if this attempt failed as many checks as the last one (no improvement)
+    - halt once max_attempts is reached
+    - otherwise retry (the orchestrator passes the issue report as feedback)
+
+    Crashed stages arrive here as failed "__execution__" results, so they
+    count as failures like any other check.
     """
     if not result:
         decision = RepairDecision("halt", f"{stage_name}: no validations were run (no matched outputs).")
@@ -31,11 +40,23 @@ def decide_next_action(result: dict, stage_name: str, attempt: int = 1, max_atte
         print(decision.reason)
         return decision
 
-    if attempt < max_attempts:
+    if translation_skipped:
+        decision = RepairDecision(
+            "halt",
+            f"{stage_name}: {len(failed)} check(s) failed ({list(failed)}). "
+            f"Not retrying: translation is skipped, so a retry would rerun the same files.",
+        )
+    elif previous_failure_count is not None and len(failed) >= previous_failure_count:
+        decision = RepairDecision(
+            "halt",
+            f"{stage_name}: {len(failed)} check(s) failed, no better than the previous attempt's "
+            f"{previous_failure_count} ({list(failed)}). Stopping since retranslating isn't helping.",
+        )
+    elif attempt < max_attempts:
         decision = RepairDecision(
             "retry",
             f"{stage_name}: {len(failed)} check(s) failed ({list(failed)}). "
-            f"Would retry (attempt {attempt}/{max_attempts}) once retry logic exists.",
+            f"Retrying (attempt {attempt}/{max_attempts}).",
         )
     else:
         decision = RepairDecision(
