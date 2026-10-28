@@ -29,12 +29,12 @@ import pandas as pd
 import pandas as pd
 import numpy as np
 
-path1 = "translation/sas_files"
+path1 = "src/translation/sas_files"
 path2 = "translation/sas_files"
 path3 = "translation/sas_files"
 
 year = 2025
-quarter = "Jul"
+quarter = "jul"
 
 measure_mean = f"measure_average_stddev_{year}{quarter}"
 measure_analysis = f"Std_data_{year}{quarter}_analysis"
@@ -49,12 +49,14 @@ measure_all_list = [
     "HCP_COVID_19", "IMM_3", "OP_10", "OP_13", "OP_18B", "OP_22", "OP_23", "OP_29", "OP_8", "PC_01", "SAFE_USE_OF_OPIOIDS", "SEP_1"
 ]
 
-all_data_file = f"{path1}/Alldata_{year}{quarter}.csv"
+all_data_file = f"{path1}/alldata_{year}{quarter}.csv"
 try:
     all_data_2025Jul = pd.read_csv(all_data_file)
-except Exception:
+    all_data_2025Jul.columns = all_data_2025Jul.columns.str.upper()
+    all_data_2025Jul = all_data_2025Jul.rename(columns={"PROVIDER_ID": "provider_id"})
+except Exception as e:
+    print("Error loading CSV:", repr(e))
     all_data_2025Jul = pd.DataFrame(columns=['provider_id'] + measure_all_list)
-
 measure_volume0 = pd.DataFrame({
     'freq': [all_data_2025Jul[m].notna().sum() if m in all_data_2025Jul.columns else 0 for m in measure_all_list]
 }, index=measure_all_list)
@@ -113,7 +115,16 @@ nmeasure_Process = len(pc_names)
 initial_data_2025Jul = keep_hos(initial_data_2025Jul, measure_in, measure_cnt)
 
 measure_in_list = measure_in.split()
-globals()[measure_mean] = initial_data_2025Jul[measure_in_list].describe().T.reset_index()
+stats = initial_data_2025Jul[measure_in_list].agg(
+    ['count', 'min', 'max', 'mean', 'std']
+)
+
+stats.index = ['N', 'MIN', 'MAX', 'MEAN', 'STD']
+stats.insert(0, '_STAT_', stats.index)
+stats.insert(0, '_FREQ_', len(initial_data_2025Jul))
+stats.insert(0, '_TYPE_', 0)
+
+globals()[measure_mean] = stats.reset_index(drop=True)
 
 std_data_2025Jul = initial_data_2025Jul.copy()
 for m in measure_in_list:
