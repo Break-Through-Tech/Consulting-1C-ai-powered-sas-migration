@@ -15,12 +15,9 @@ def log_results(results: dict, stage_name: str, log_dir: Path) -> None:
         for variable_name, result in results.items():
             entry = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                **result.to_dict(),
                 "stage": stage_name,
                 "variable": variable_name,
-                "passed": result.passed,
-                "row_count_actual": result.row_count_actual,
-                "row_count_expected": result.row_count_expected,
-                "missing_columns": result.missing_columns,
-                "notes": result.notes,
+                "summary": result.summary(),
             }
-            f.write(json.dumps(entry) + "\n")
+            f.write(json.dumps(entry, allow_nan=False) + "\n")

@@ -109,12 +109,7 @@ def build_issue_report(all_results: dict[str, dict]) -> dict[str, list[str]]:
                 # row/column counts are meaningless for a stage that crashed; the error is what matters
                 stage_issues.append("crashed while running: " + " | ".join(n.strip() for n in result.notes))
             else:
-                stage_issues.append(
-                    f"{variable_name}: rows {result.row_count_actual} vs "
-                    f"{result.row_count_expected} expected; "
-                    f"missing columns: {result.missing_columns}; "
-                    f"notes: {result.notes}"
-                )
+                stage_issues.extend(result.summary().splitlines())
         if stage_issues:
             issues_by_stage[stage_name] = stage_issues
     return issues_by_stage
@@ -272,6 +267,7 @@ while attempt <= MAX_ATTEMPTS:
                 continue
             actual_df, reference_path = save_and_validate(actual_df, reference_filename, stage_path.name, variable_name)
             result[variable_name] = compare_dataframe(actual_df, reference_path, stage_path.name, variable_name)
+            print(result[variable_name].summary())
 
         log_results(result, stage_path.name, LOG_DIR)
         all_results[stage_path.name] = result

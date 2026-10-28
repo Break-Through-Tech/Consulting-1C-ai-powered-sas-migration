@@ -40,6 +40,16 @@
 * How to access the dataset(s)
 * How to run the notebook or scripts
 
+### Pipeline validation reports
+
+Run the pipeline with the repository environment using
+`.venv\Scripts\python.exe src\orchestrator\pipeline.py`. Validation matches
+rows by `provider_id` when available (otherwise by row position), compares
+numeric values using an absolute tolerance of `1e-4` and relative tolerance
+of `1e-6`, and reports schema, key, per-column, and aggregate differences.
+The terminal shows a concise summary; detailed JSONL results are appended to
+`logs/validation_log_YYYYMMDD.jsonl`.
+
 ---
 
 ## 🏗️ **Project Overview**
