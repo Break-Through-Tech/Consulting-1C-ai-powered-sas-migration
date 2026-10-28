@@ -14,6 +14,9 @@ from translation.translation import translate_sas_files
 from validation.validation import compare_dataframe, ValidationResult
 from orchestrator.repair import decide_next_action
 from reporting.logger import log_results
+from reporting.accuracy_report import (
+    build_accuracy_report, format_accuracy_report, save_accuracy_report, unvalidated_references,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TRANSLATED_DIR = REPO_ROOT / "src" / "translation" / "translated_files"
@@ -272,6 +275,19 @@ while attempt <= MAX_ATTEMPTS:
         log_results(result, stage_path.name, LOG_DIR)
         all_results[stage_path.name] = result
 
+    # a SAS reference that no stage produced a matching output for must fail
+    # the run, not be silently skipped
+    uncovered = unvalidated_references(all_results, REFERENCE_DIR)
+    if uncovered:
+        all_results["__coverage__"] = {
+            name: failed_result(
+                "__coverage__", name,
+                [f"No Python output matched {name}, so it was never compared to SAS."],
+            )
+            for name in uncovered
+        }
+        log_results(all_results["__coverage__"], "__coverage__", LOG_DIR)
+
     # build the sectioned issue report ACROSS all stages
     issue_report = build_issue_report(all_results)
 
@@ -289,6 +305,11 @@ while attempt <= MAX_ATTEMPTS:
 
     failure_count = sum(not r.passed for r in flat_results.values())
     attempt_dir = save_attempt(attempt, issue_report, failure_count, decision)
+
+    # accuracy summary: coverage, % of values matching, and star agreement
+    accuracy = build_accuracy_report(all_results, REFERENCE_DIR, ACTUAL_OUTPUT_DIR)
+    print(format_accuracy_report(accuracy))
+    save_accuracy_report(accuracy, attempt_dir)
     if best is None or failure_count < best[1]:
         best = (attempt, failure_count, attempt_dir)
 
