@@ -89,12 +89,22 @@ def calc_summary(row):
 
 summary_score['summary_score'] = summary_score.apply(calc_summary, axis=1)
 
-report(
+# keep the standard and redistributed weights, as the SAS summary_score data step does
+std_weight_cols = ['std_weight_PatientExperience', 'std_weight_Readmission', 'std_weight_Mortality',
+                   'std_weight_safety', 'std_weight_Process']
+weight_cols = ['weight_PatientExperience', 'weight_Outcomes_Readmission', 'weight_Outcomes_Mortality',
+               'weight_Outcomes_Safety', 'weight_Process']
+missing = summary_score[scores_cols].isna()
+denom = 1.0 - (missing * np.array(std_weights)).sum(axis=1)
+for std_col, w_col, score_col, w in zip(std_weight_cols, weight_cols, scores_cols, std_weights):
+    summary_score[std_col] = w
+    summary_score[w_col] = (w / denom).where(~missing[score_col])
+
+report_indicator_df = report(
     globals()[measure_analysis], 'report_indicator', 
     nmeasure_OM, nmeasure_OS, nmeasure_OR, nmeasure_PtExp, nmeasure_Process,
     measure_OM, measure_OS, measure_OR, measure_PtExp, measure_Process
 )
-report_indicator_df = globals()['report_indicator']
 
 summary_score1 = summary_score.sort_values(by='provider_id').copy()
 report_indicator_sorted = report_indicator_df.sort_values(by='provider_id').copy()
@@ -139,14 +149,12 @@ globals()[results_ds] = results_final
 summary_avg = nation_avg0(results_final, 'summary_avg', 'Summary_Score_Nat')
 summary_avg_peer = nation_avg_peer(results_final, 'summary_avg_peer', 'Summary_Score_Nat', 'Total_measure_group_cnt')
 
-outcome_mortality_avg = nation_avg(globals().get('Outcome_mortality'), 'outcome_mortality_avg', 'Out_Mrt_Grp_Score_Nat')
-outcome_safety_avg = nation_avg(globals().get('Outcome_safety'), 'outcome_safety_avg', 'Out_Sft_Grp_Score_Nat')
-outcome_readmission_avg = nation_avg(globals().get('Outcome_readmission'), 'outcome_readmission_avg', 'Out_Readm_grp_Score_Nat')
-ptexp_avg = nation_avg(globals().get('Outcome_mortality'), 'ptexp_avg', 'Pt_Exp_Grp_Score_Nat') if globals().get('Outcome_mortality') is not None else pd.DataFrame({'Pt_Exp_Grp_Score_Nat': [np.nan]})
-if globals().get('PtExp') is not None:
-    ptexp_avg = nation_avg(globals().get('PtExp'), 'ptexp_avg', 'Pt_Exp_Grp_Score_Nat')
+outcome_mortality_avg = nation_avg(Outcome_mortality, 'outcome_mortality_avg', 'Out_Mrt_Grp_Score_Nat')
+outcome_safety_avg = nation_avg(Outcome_safety, 'outcome_safety_avg', 'Out_Sft_Grp_Score_Nat')
+outcome_readmission_avg = nation_avg(Outcome_readmission, 'outcome_readmission_avg', 'Out_Readm_grp_Score_Nat')
+ptexp_avg = nation_avg(PtExp, 'ptexp_avg', 'Pt_Exp_Grp_Score_Nat')
 
-process_avg = nation_avg(globals().get('Process'), 'process_avg', 'Prc_of_Care_Grp_Score_Nat')
+process_avg = nation_avg(Process, 'process_avg', 'Prc_of_Care_Grp_Score_Nat')
 
 nat_mean_parts = [summary_avg, summary_avg_peer, outcome_mortality_avg, outcome_safety_avg, outcome_readmission_avg, ptexp_avg, process_avg]
 national_mean_df = pd.concat([p.reset_index(drop=True) for p in nat_mean_parts if p is not None], axis=1)
