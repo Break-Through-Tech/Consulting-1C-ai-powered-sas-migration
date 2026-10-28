@@ -39,7 +39,7 @@ measure_OR_cnt = len(or_names)
 Outcome_readmission = grp_score(globals()[measure_analysis], "OR", measure_OR, measure_OR_cnt, "Outcome_readmission")
 
 measure_PtExp_cnt = len(pt_names)
-PtExp_score = grp_score(globals()[measure_analysis], "PtExp", measure_PtExp, measure_PtExp_cnt, "PtExp")
+PtExp = grp_score(globals()[measure_analysis], "PtExp", measure_PtExp, measure_PtExp_cnt, "PtExp")
 
 measure_Process_cnt = len(pc_names)
-Process_score = grp_score(globals()[measure_analysis], "Process", measure_Process, measure_Process_cnt, "Process")
+Process = grp_score(globals()[measure_analysis], "Process", measure_Process, measure_Process_cnt, "Process")

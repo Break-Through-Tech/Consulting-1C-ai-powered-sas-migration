@@ -50,6 +50,19 @@ of `1e-6`, and reports schema, key, per-column, and aggregate differences.
 The terminal shows a concise summary; detailed JSONL results are appended to
 `logs/validation_log_YYYYMMDD.jsonl`.
 
+After validation, the pipeline prints an **accuracy report**
+(`src/reporting/accuracy_report.py`), also saved as `accuracy_report.txt` and
+`accuracy_report.json` in each `logs/run_*/attempt_N/` folder. It shows:
+
+* **Coverage:** how many SAS reference CSVs were compared. A reference with no
+  matching Python output is listed as `NOT VALIDATED` and fails the run
+  instead of being silently skipped.
+* **Value accuracy:** the share of compared values within tolerance, per
+  table and overall.
+* **Star agreement:** how many SAS-rated hospitals get the same star in
+  Python, and how many are off by one. If any differ, a SAS-vs-Python
+  confusion table is shown.
+
 ---
 
 ## 🏗️ **Project Overview**

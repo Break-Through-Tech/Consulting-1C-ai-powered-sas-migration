@@ -3,7 +3,6 @@ import pandas as pd
 
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
 
 def keep_hos(indsn, varlist, nmeasure):
     df = indsn.copy()
@@ -54,7 +53,7 @@ def grp_score(indsn, gp, varlist, nmeasure, out_avg):
     else:
         dat1['avg'] = 0.0
         
-    new_summary = pd.DataFrame({'mean': [mean_val], 'std': [std_val]})
+    new_summary = pd.DataFrame({'Mean': [mean_val], 'StdDev': [std_val]})
     
     dat2 = dat0.assign(key=1).merge(new_summary.assign(key=1), on='key').drop(columns='key')
     
@@ -64,7 +63,6 @@ def grp_score(indsn, gp, varlist, nmeasure, out_avg):
         how='inner'
     )
     
-    globals()[out_avg] = merged
     return merged
 
 def report(indsn, outdsn, nmeasure_OM, nmeasure_OS, nmeasure_OR, nmeasure_PtExp, nmeasure_Process, measure_OM, measure_OS, measure_OR, measure_PtExp, measure_Process):
@@ -116,14 +114,34 @@ def report(indsn, outdsn, nmeasure_OM, nmeasure_OS, nmeasure_OR, nmeasure_PtExp,
     ]
     
     res = df[out_cols].copy()
-    globals()[outdsn] = res
     return res
+
+def _fastclus(x, centers, strict=None, max_iter=1000):
+    """Port of SAS PROC FASTCLUS for one variable with CONVERGE=0.
+
+    Runs Lloyd iterations until the cluster centers stop changing exactly
+    (sklearn's KMeans stops early at tol=1e-4, which changed 110 stars).
+    With strict=d (SAS STRICT=d), observations farther than d from their
+    nearest center keep that cluster but are excluded when recomputing it.
+    Returns (centers, labels).
+    """
+    c = np.sort(np.asarray(centers, dtype=float))
+    for _ in range(max_iter):
+        dist = np.abs(x[:, None] - c[None, :])
+        labels = dist.argmin(axis=1)
+        use = np.ones(len(x), dtype=bool) if strict is None else dist.min(axis=1) <= strict
+        new_c = np.array([x[(labels == k) & use].mean() if ((labels == k) & use).any() else c[k]
+                          for k in range(len(c))])
+        if np.array_equal(new_c, c):
+            break
+        c = new_c
+    return c, np.abs(x[:, None] - c[None, :]).argmin(axis=1)
 
 def kmeans(in_df, out, grp):
     summary_score2 = in_df.copy()
     
     pcts = np.percentile(summary_score2['summary_score'].dropna(), [20, 40, 60, 80])
-    p20, p40, p60, p80 = pts[0], pts[1], pts[2], pts[3]
+    p20, p40, p60, p80 = pcts[0], pcts[1], pcts[2], pcts[3]
     
     def assign_quintile(val):
         if pd.isna(val):
@@ -146,59 +164,37 @@ def kmeans(in_df, out, grp):
     s33 = s3.rename(columns={'summary_score': 'summary_score_median'})
     s33['summary_score'] = s33['summary_score_median']
     
-    seeds = s33['summary_score'].dropna().values.reshape(-1, 1)
-    if len(seeds) < 5:
-        seeds = np.linspace(summary_score2['summary_score'].min(), summary_score2['summary_score'].max(), 5).reshape(-1, 1)
-        
-    X = summary_score2[['summary_score']].fillna(summary_score2['summary_score'].mean()).values
-    
-    kmeans1 = KMeans(n_clusters=min(5, len(seeds)), init=seeds[:min(5, len(seeds))], n_init=1, max_iter=1000, random_state=42)
-    clusters_labels = kmeans1.fit_predict(X)
-    
-    clusters_df = summary_score2.copy()
-    clusters_df['cluster'] = clusters_labels + 1
-    cluster_centers1 = pd.DataFrame({'cluster': range(1, len(kmeans1.cluster_centers_) + 1), 'summary_score': kmeans1.cluster_centers_.flatten()})
-    
-    kmeans2 = KMeans(n_clusters=min(5, len(cluster_centers1)), init=cluster_centers1['summary_score'].values.reshape(-1, 1), n_init=1, max_iter=1000, random_state=42)
-    clusters_labels2 = kmeans2.fit_predict(X)
-    
-    clusters = summary_score2.copy()
-    clusters['cluster'] = clusters_labels2 + 1
-    cluster_mean = pd.DataFrame({'cluster': range(1, len(kmeans2.cluster_centers_) + 1), 'summary_score': kmeans2.cluster_centers_.flatten()})
-    
-    cluster_sort = cluster_mean.sort_values(by='summary_score').copy()
-    cluster_sort = cluster_sort.rename(columns={'summary_score': 'mean_summary_score_star'})
-    cluster_sort['star'] = range(1, len(cluster_sort) + 1)
-    cluster_sort['cluster_2'] = cluster_sort['cluster'].astype(str).astype(float).astype(int)
-    
-    cluster_sort = cluster_sort.rename(columns={'cluster_2': 'cluster'})
-    clusters['cluster'] = clusters['cluster'].abs()
-    
-    results = clusters.merge(cluster_sort[['cluster', 'star']], on='cluster', how='left')
+    seeds = s33['summary_score'].dropna().to_numpy()
+    x = summary_score2['summary_score'].to_numpy(dtype=float)
+
+    # Step 1: PROC FASTCLUS maxc=5 converge=0 maxiter=1000 seed=s33
+    centers1, _ = _fastclus(x, seeds)
+    # Step 2: PROC FASTCLUS ... seed=seeds2 strict=1 (outliers don't move the centers)
+    centers2, labels = _fastclus(x, centers1, strict=1)
+
+    # order clusters by mean summary score: lowest center -> 1 star
+    star_of_cluster = np.argsort(np.argsort(centers2)) + 1
+    results = summary_score2.copy()
+    results['star'] = star_of_cluster[labels]
     results = results.sort_values(by='provider_id')
     
     final_out = results[['provider_id', 'star', grp]].copy() if grp in results.columns else results[['provider_id', 'star']].copy()
-    globals()[out] = final_out
     return final_out
 
 def nation_avg0(indata, out, var):
     temp = indata[indata['report_indicator'] == 1].copy()
     mean_val = temp['summary_score'].mean()
     out_df = pd.DataFrame({var: [mean_val]})
-    globals()[out] = out_df
     return out_df
 
 def nation_avg_peer(indata, out, var, gr):
     temp = indata[indata['report_indicator'] == 1].copy()
     out1 = temp.groupby(gr)['summary_score'].mean().reset_index().rename(columns={'summary_score': var})
-    out2 = out1.pivot(columns=gr, values=var).reset_index(drop=True)
-    out2.columns = [f"{var}_peer_{c}" for c in out2.columns]
-    globals()[out] = out2
+    out2 = pd.DataFrame([{f"{var}_peer{int(g)}": v for g, v in zip(out1[gr], out1[var])}])
     return out2
 
 def nation_avg(indata, out, var):
     temp = indata[indata['total_cnt'] >= 3].copy()
     mean_val = temp['grp_score'].mean()
     out_df = pd.DataFrame({var: [mean_val]})
-    globals()[out] = out_df
     return out_df
