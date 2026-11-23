@@ -10,11 +10,12 @@ import pandas as pd
 
 SRC_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC_DIR))
-from translation.translation import translate_sas_files
+from translation.translation import translate_sas_files, MODEL
 from validation.validation import compare_dataframe, ValidationResult
 from orchestrator.repair import decide_next_action
 from reporting.logger import log_results
 from reporting.verification_output import write_verification_output
+from reporting.token_usage import TokenUsageTracker, save_token_usage, append_token_history
 from reporting.accuracy_report import (
     build_accuracy_report, format_accuracy_report, save_accuracy_report, unvalidated_references,
 )
@@ -126,20 +127,32 @@ def translator_accepts_feedback() -> bool:
     return "feedback" in inspect.signature(translate_sas_files).parameters
 
 
-def call_translator(issue_report: dict[str, list[str]]) -> None:
+def call_translator(issue_report: dict[str, list[str]], usage: TokenUsageTracker) -> None:
     """
     Translate all stages. The first attempt has no issue report; on a retry,
     pass the previous attempt's issues so the translator can make targeted
     fixes. Until #32 adds the `feedback` parameter, fall back to a blind retry.
+    Token counts for every API call are recorded into `usage`.
     """
     if not issue_report:
-        translate_sas_files()
+        translate_sas_files(usage=usage)
     elif translator_accepts_feedback():
         print(f"Retranslating with feedback on {len(issue_report)} stage(s).")
-        translate_sas_files(feedback=issue_report)
+        translate_sas_files(feedback=issue_report, usage=usage)
     else:
         print("translate_sas_files() doesn't accept feedback yet (#32), so this retry is blind.")
-        translate_sas_files()
+        translate_sas_files(usage=usage)
+
+
+def record_token_usage(usage: TokenUsageTracker, attempt: int, attempt_dir: Path) -> None:
+    """Print this attempt's token usage and save it to the run folder and verification output."""
+    print(usage.format_summary(f"TOKEN USAGE: attempt {attempt}"))
+    save_token_usage(usage, attempt_dir)
+    save_token_usage(usage, VERIFICATION_OUTPUT_DIR / "latest")
+    append_token_history(
+        usage, VERIFICATION_OUTPUT_DIR / "token_usage_history.csv",
+        run=RUN_DIR.name, attempt=attempt, translation=TRANSLATION_MODE,
+    )
 
 
 def find_failing_stage(exc: Exception, stage_path: Path) -> str:
@@ -219,14 +232,26 @@ attempt = 1
 issue_report = {}             # empty on the first attempt; filled from each attempt's failures
 previous_failure_count = None  # failure count from the last attempt, to detect a retry that didn't help
 best = None                    # (attempt, failure_count, saved attempt folder) with the fewest failures
+TRANSLATION_MODE = ("skipped (existing translated files)" if SKIP_TRANSLATION_FOR_TESTING
+                    else "fresh SAS-to-Python translation")
+run_usage = TokenUsageTracker(model=MODEL)  # every API call across all attempts of this run
 while attempt <= MAX_ATTEMPTS:
     last_attempt = attempt
     print(f"\nTranslation + validation attempt {attempt}/{MAX_ATTEMPTS}")
+    usage = TokenUsageTracker(model=MODEL)
 
     if SKIP_TRANSLATION_FOR_TESTING:
         print("SKIP_TRANSLATION_FOR_TESTING is on — using existing files in translated_files/, no API call made.")
     else:
-        call_translator(issue_report)
+        try:
+            call_translator(issue_report, usage)
+        except Exception:
+            # tokens spent before the failure still count; save them before stopping
+            failed_dir = RUN_DIR / f"attempt_{attempt}"
+            record_token_usage(usage, attempt, failed_dir)
+            raise
+        finally:
+            run_usage.calls.extend(usage.calls)
 
     # start each attempt from a clean slate so the freshly translated files are the ones that run
     clear_stage_modules()
@@ -316,10 +341,11 @@ while attempt <= MAX_ATTEMPTS:
     report_path = write_verification_output(
         accuracy, all_results, VERIFICATION_OUTPUT_DIR,
         run=RUN_DIR.name, attempt=attempt,
-        translation="skipped (existing translated files)" if SKIP_TRANSLATION_FOR_TESTING
-                    else "fresh SAS-to-Python translation",
+        translation=TRANSLATION_MODE,
         checks_passed=len(flat_results) - failure_count, checks_failed=failure_count,
+        token_usage=usage.to_dict(),
     )
+    record_token_usage(usage, attempt, attempt_dir)
     print(f"Verification output written to {report_path.relative_to(REPO_ROOT)}")
     if best is None or failure_count < best[1]:
         best = (attempt, failure_count, attempt_dir)
@@ -332,6 +358,8 @@ while attempt <= MAX_ATTEMPTS:
     attempt += 1
 
 best_attempt, best_failure_count, best_dir = best
+if last_attempt > 1:
+    print(run_usage.format_summary(f"TOKEN USAGE: whole run ({last_attempt} attempts)"))
 print(f"\nBest attempt: {best_attempt} of {last_attempt}, with {best_failure_count} failed check(s). "
       f"Snapshots of every attempt are in {RUN_DIR.relative_to(REPO_ROOT)}")
 # a later attempt can be worse than an earlier one; leave translated_files/ at the best

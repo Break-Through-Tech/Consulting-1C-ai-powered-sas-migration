@@ -222,11 +222,26 @@ del _stage_filename, _stage_name, _stage_module
 '''
 
 
+def _record_usage(usage, label: str, response) -> None:
+    """Record and print this call's token counts if a usage tracker was given."""
+    if usage is None:
+        return
+    call = usage.record(label, response)
+    if call.reported:
+        print(f"    tokens: {call.prompt:,} prompt + {call.output:,} output"
+              f" + {call.thinking:,} thinking = {call.total:,} total")
+
+
 def translate_sas_files(
     sas_files_dir: Path = SAS_FILES_DIR,
     output_dir: Path = OUTPUT_DIR,
+    usage=None,
 ) -> list[Path]:
-    """Translate every SAS file in dependency order using one persistent chat."""
+    """Translate every SAS file in dependency order using one persistent chat.
+
+    usage: optional reporting.token_usage.TokenUsageTracker; every API call's
+    token counts are recorded into it (including calls made before an error).
+    """
     sas_files = sorted(sas_files_dir.glob("*.sas"), key=sas_file_sort_key)
     if not sas_files:
         raise FileNotFoundError(f"No .sas files found in {sas_files_dir}")
@@ -295,6 +310,7 @@ Use the existing conversation history to preserve shared names, definitions,
 and dependencies. Return only the Python code for this file."""
 
         response = chat.send_message(message)
+        _record_usage(usage, f"translate {sas_path.name}", response)
         if not response.text or not response.text.strip():
             raise RuntimeError(f"The model returned no translation for {sas_path.name}")
 
@@ -334,6 +350,7 @@ don't claim equivalence or invent input files, dependencies, or results.
 
 Write the contents of README.md only, in Markdown, with no outer code fence."""
     readme_response = chat.send_message(readme_prompt)
+    _record_usage(usage, "generate README.md", readme_response)
     if not readme_response.text or not readme_response.text.strip():
         raise RuntimeError("The model returned no README documentation")
 
