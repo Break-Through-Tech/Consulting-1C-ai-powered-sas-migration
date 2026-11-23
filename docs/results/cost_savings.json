@@ -1,0 +1,89 @@
+{
+  "currency": "USD",
+  "assumptions": {
+    "currency": "USD",
+    "sas_annual_license_cost": 8000,
+    "license_allocation": "lines_of_code",
+    "runs_per_year": 4,
+    "server_cost_per_hour": 2.0,
+    "sas_maintenance_hours_per_script": 8,
+    "python_maintenance_hours_per_script": 8,
+    "sas_developer_hourly_rate": 60,
+    "python_developer_hourly_rate": 60,
+    "llm_cost_per_script": null
+  },
+  "scripts": [
+    {
+      "script": "0 - Data and Measure Standardization_2025Jul",
+      "sas_lines": 278,
+      "license_share_pct": 35.96,
+      "sas_annual_cost": 3357.11,
+      "python_annual_cost": 480.0,
+      "annual_savings": 2877.11,
+      "license_savings": 2877.1,
+      "compute_savings": 0.0031,
+      "maintenance_savings": 0,
+      "tokens_used": null,
+      "ai_conversion_cost": 0.0,
+      "first_year_net_savings": 2877.11,
+      "payback_months": 0.0
+    },
+    {
+      "script": "1 - First stage_Simple Average of Measure Scores_2025Jul",
+      "sas_lines": 96,
+      "license_share_pct": 12.42,
+      "sas_annual_cost": 1473.53,
+      "python_annual_cost": 480.0,
+      "annual_savings": 993.53,
+      "license_savings": 993.53,
+      "compute_savings": -0.0013,
+      "maintenance_savings": 0,
+      "tokens_used": null,
+      "ai_conversion_cost": 0.0,
+      "first_year_net_savings": 993.53,
+      "payback_months": 0.0
+    },
+    {
+      "script": "2 - Second Stage_Weighted Average and Categorize Star_2025Jul",
+      "sas_lines": 178,
+      "license_share_pct": 23.03,
+      "sas_annual_cost": 2322.18,
+      "python_annual_cost": 480.0,
+      "annual_savings": 1842.17,
+      "license_savings": 1842.17,
+      "compute_savings": 0.0016,
+      "maintenance_savings": 0,
+      "tokens_used": null,
+      "ai_conversion_cost": 0.0,
+      "first_year_net_savings": 1842.17,
+      "payback_months": 0.0
+    },
+    {
+      "script": "Star_Macros",
+      "sas_lines": 221,
+      "license_share_pct": 28.59,
+      "sas_annual_cost": 2767.19,
+      "python_annual_cost": 480.0,
+      "annual_savings": 2287.19,
+      "license_savings": 2287.19,
+      "compute_savings": -0.0,
+      "maintenance_savings": 0,
+      "tokens_used": null,
+      "ai_conversion_cost": 0.0,
+      "first_year_net_savings": 2287.19,
+      "payback_months": 0.0
+    }
+  ],
+  "totals": {
+    "sas_annual_cost": 9920.01,
+    "python_annual_cost": 1920.0,
+    "annual_savings": 8000.0,
+    "license_savings": 8000.0,
+    "compute_savings": 0.0033,
+    "maintenance_savings": 0,
+    "ai_conversion_cost": 0.0,
+    "first_year_net_savings": 8000.0,
+    "tokens_used": null,
+    "payback_months": 0.0
+  }
+}

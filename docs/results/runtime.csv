@@ -1,0 +1,5 @@
+script,sas_file,python_file,translation_seconds,sas_runtime_seconds,python_runtime_seconds,speedup,note
+0 - Data and Measure Standardization_2025Jul,0 - Data and Measure Standardization_2025Jul.sas,0 - Data and Measure Standardization_2025Jul.py,,1.61,0.2348,6.86,
+1 - First stage_Simple Average of Measure Scores_2025Jul,1 - First stage_Simple Average of Measure Scores_2025Jul.sas,1 - First stage_Simple Average of Measure Scores_2025Jul.py,,0.27,0.8719,0.31,
+2 - Second Stage_Weighted Average and Categorize Star_2025Jul,2 - Second Stage_Weighted Average and Categorize Star_2025Jul.sas,2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py,,0.98,0.2653,3.69,
+Star_Macros,Star_Macros.sas,Star_Macros.py,,,0.0042,,macros run inside the other programs in SAS

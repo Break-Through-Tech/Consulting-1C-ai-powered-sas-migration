@@ -1,0 +1,15 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "api_calls": 0,
+  "calls_without_usage": 0,
+  "totals": {
+    "prompt": 0,
+    "output": 0,
+    "thinking": 0,
+    "cached": 0,
+    "total": 0
+  },
+  "api_seconds": 0,
+  "estimated_cost_usd": null,
+  "calls": []
+}

@@ -1,0 +1,6 @@
+script,sas_lines,license_share_pct,sas_annual_cost,python_annual_cost,annual_savings,license_savings,compute_savings,maintenance_savings,tokens_used,ai_conversion_cost,first_year_net_savings,payback_months
+0 - Data and Measure Standardization_2025Jul,278,35.96,3357.11,480.0,2877.11,2877.1,0.0031,0,,0.0,2877.11,0.0
+1 - First stage_Simple Average of Measure Scores_2025Jul,96,12.42,1473.53,480.0,993.53,993.53,-0.0013,0,,0.0,993.53,0.0
+2 - Second Stage_Weighted Average and Categorize Star_2025Jul,178,23.03,2322.18,480.0,1842.17,1842.17,0.0016,0,,0.0,1842.17,0.0
+Star_Macros,221,28.59,2767.19,480.0,2287.19,2287.19,-0.0,0,,0.0,2287.19,0.0
+TOTAL,,,9920.01,1920.0,8000.0,8000.0,0.0033,0,,0.0,8000.0,0.0
