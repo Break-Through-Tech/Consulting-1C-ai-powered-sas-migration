@@ -1,0 +1,54 @@
+{
+  "runtime": [
+    {
+      "script": "0 - Data and Measure Standardization_2025Jul",
+      "sas_file": "0 - Data and Measure Standardization_2025Jul.sas",
+      "python_file": "0 - Data and Measure Standardization_2025Jul.py",
+      "translation_seconds": null,
+      "sas_runtime_seconds": 1.61,
+      "python_runtime_seconds": 0.2348,
+      "speedup": 6.86,
+      "note": ""
+    },
+    {
+      "script": "1 - First stage_Simple Average of Measure Scores_2025Jul",
+      "sas_file": "1 - First stage_Simple Average of Measure Scores_2025Jul.sas",
+      "python_file": "1 - First stage_Simple Average of Measure Scores_2025Jul.py",
+      "translation_seconds": null,
+      "sas_runtime_seconds": 0.27,
+      "python_runtime_seconds": 0.8719,
+      "speedup": 0.31,
+      "note": ""
+    },
+    {
+      "script": "2 - Second Stage_Weighted Average and Categorize Star_2025Jul",
+      "sas_file": "2 - Second Stage_Weighted Average and Categorize Star_2025Jul.sas",
+      "python_file": "2 - Second Stage_Weighted Average and Categorize Star_2025Jul.py",
+      "translation_seconds": null,
+      "sas_runtime_seconds": 0.98,
+      "python_runtime_seconds": 0.2653,
+      "speedup": 3.69,
+      "note": ""
+    },
+    {
+      "script": "Star_Macros",
+      "sas_file": "Star_Macros.sas",
+      "python_file": "Star_Macros.py",
+      "translation_seconds": null,
+      "sas_runtime_seconds": null,
+      "python_runtime_seconds": 0.0042,
+      "speedup": null,
+      "note": "macros run inside the other programs in SAS"
+    }
+  ],
+  "runtime_totals": {
+    "translation_seconds": null,
+    "sas_runtime_seconds": 2.86,
+    "python_runtime_seconds": 1.3762
+  },
+  "phases": {
+    "translation_seconds": null,
+    "validation_seconds": 46.02,
+    "attempt_seconds": 46.02
+  }
+}

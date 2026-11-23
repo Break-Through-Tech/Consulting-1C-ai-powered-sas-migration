@@ -1,0 +1,197 @@
+{
+  "timestamp": "2026-11-23T04:15:18",
+  "run": "run_20261123_041432",
+  "attempt": 1,
+  "translation": "skipped (existing translated files)",
+  "verdict": "PASS",
+  "checks_passed": 21,
+  "checks_failed": 0,
+  "token_usage": {
+    "model": "gemini-3.5-flash-lite",
+    "api_calls": 0,
+    "calls_without_usage": 0,
+    "totals": {
+      "prompt": 0,
+      "output": 0,
+      "thinking": 0,
+      "cached": 0,
+      "total": 0
+    },
+    "api_seconds": 0,
+    "estimated_cost_usd": null,
+    "calls": []
+  },
+  "coverage": {
+    "references": 10,
+    "validated": 10,
+    "unvalidated": []
+  },
+  "crashed_stages": [],
+  "overall_value_accuracy": 1.0,
+  "values_compared": 1100660,
+  "values_mismatched": 0,
+  "tables": {
+    "LESS100_MEASURE.csv": {
+      "passed": true,
+      "rows_expected": 0,
+      "rows_compared": 0,
+      "values_compared": 0,
+      "values_mismatched": 0,
+      "accuracy": null,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "MEASURE_AVERAGE_STDDEV_2025JUL.csv": {
+      "passed": true,
+      "rows_expected": 5,
+      "rows_compared": 5,
+      "values_compared": 245,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "NATIONAL_AVERAGE_2025JUL.csv": {
+      "passed": true,
+      "rows_expected": 1,
+      "rows_compared": 1,
+      "values_compared": 9,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "OUTCOME_MORTALITY.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 91320,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "OUTCOME_READMISSION.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 127848,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "OUTCOME_SAFETY.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 100452,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "PROCESS.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 136980,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "PTEXP.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 100452,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "STAR_2025JUL.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 118716,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    },
+    "STD_DATA_2025JUL_ANALYSIS.csv": {
+      "passed": true,
+      "rows_expected": 4566,
+      "rows_compared": 4566,
+      "values_compared": 424638,
+      "values_mismatched": 0,
+      "accuracy": 1.0,
+      "missing_columns": [],
+      "worst_columns": {}
+    }
+  },
+  "stars": {
+    "hospitals_compared": 4566,
+    "hospitals_missing_from_python": 0,
+    "hospitals_extra_in_python": 0,
+    "sas_rated": 2891,
+    "rated_matching": 2891,
+    "agreement_rated": 1.0,
+    "agreement_all": 1.0,
+    "off_by_one": 0,
+    "confusion": {
+      "1": {
+        "1": 233,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "none": 0
+      },
+      "2": {
+        "1": 0,
+        "2": 661,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "none": 0
+      },
+      "3": {
+        "1": 0,
+        "2": 0,
+        "3": 939,
+        "4": 0,
+        "5": 0,
+        "none": 0
+      },
+      "4": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 767,
+        "5": 0,
+        "none": 0
+      },
+      "5": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 291,
+        "none": 0
+      },
+      "none": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "none": 1675
+      }
+    },
+    "sample_mismatches": []
+  },
+  "complete": true
+}
