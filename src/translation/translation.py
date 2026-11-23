@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import os
 import re
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -222,14 +223,18 @@ del _stage_filename, _stage_name, _stage_module
 '''
 
 
-def _record_usage(usage, label: str, response) -> None:
-    """Record and print this call's token counts if a usage tracker was given."""
-    if usage is None:
-        return
-    call = usage.record(label, response)
-    if call.reported:
-        print(f"    tokens: {call.prompt:,} prompt + {call.output:,} output"
-              f" + {call.thinking:,} thinking = {call.total:,} total")
+def _send(chat, message: str, usage, label: str):
+    """Send one message, timing it and recording its tokens if a usage tracker was given."""
+    start = time.perf_counter()
+    response = chat.send_message(message)
+    seconds = time.perf_counter() - start
+    print(f"    {label}: {seconds:.1f}s")
+    if usage is not None:
+        call = usage.record(label, response, seconds=seconds)
+        if call.reported:
+            print(f"    tokens: {call.prompt:,} prompt + {call.output:,} output"
+                  f" + {call.thinking:,} thinking = {call.total:,} total")
+    return response
 
 
 def translate_sas_files(
@@ -309,8 +314,7 @@ the module is loaded; later stages will load this file and reuse its public name
 Use the existing conversation history to preserve shared names, definitions,
 and dependencies. Return only the Python code for this file."""
 
-        response = chat.send_message(message)
-        _record_usage(usage, f"translate {sas_path.name}", response)
+        response = _send(chat, message, usage, f"translate {sas_path.name}")
         if not response.text or not response.text.strip():
             raise RuntimeError(f"The model returned no translation for {sas_path.name}")
 
@@ -349,8 +353,7 @@ documentation on the actual source and translated code in this conversation;
 don't claim equivalence or invent input files, dependencies, or results.
 
 Write the contents of README.md only, in Markdown, with no outer code fence."""
-    readme_response = chat.send_message(readme_prompt)
-    _record_usage(usage, "generate README.md", readme_response)
+    readme_response = _send(chat, readme_prompt, usage, "generate README.md")
     if not readme_response.text or not readme_response.text.strip():
         raise RuntimeError("The model returned no README documentation")
 

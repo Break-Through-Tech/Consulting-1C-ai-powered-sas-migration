@@ -1,0 +1,34 @@
+{
+  "_notes": [
+    "Inputs for the estimated annual cost savings of each SAS script converted to Python.",
+    "Every number below is a PLACEHOLDER. Replace it with your organization's real figures; SAS does not publish its prices and they vary widely by contract.",
+    "Money is in the currency below; hours are hours of work per year unless noted."
+  ],
+  "currency": "USD",
+
+  "sas_annual_license_cost": 8000,
+  "_sas_annual_license_cost": "Yearly SAS cost attributable to these programs (licence, renewal or maintenance fee). Placeholder within the publicly reported range for one named user. Only saved if the licence is actually reduced or retired.",
+
+  "license_allocation": "lines_of_code",
+  "_license_allocation": "How the licence cost is split across scripts: 'lines_of_code' (by SAS source size) or 'equal'.",
+
+  "runs_per_year": 4,
+  "_runs_per_year": "How many times a year the full program set is run.",
+
+  "server_cost_per_hour": 2.0,
+  "_server_cost_per_hour": "Compute cost per hour of run time, used for both SAS and Python.",
+
+  "sas_maintenance_hours_per_script": 8,
+  "python_maintenance_hours_per_script": 8,
+  "_maintenance_hours": "Hours a year spent maintaining each script in each language.",
+
+  "sas_developer_hourly_rate": 60,
+  "python_developer_hourly_rate": 60,
+  "_developer_hourly_rate": "Loaded hourly cost of the people who maintain the code. Equal by default, so savings come only from licence and compute unless you change them.",
+
+  "conversion_review_hours_per_script": 4,
+  "_conversion_review_hours_per_script": "One-time hours to review and validate each converted script.",
+
+  "llm_cost_per_script": null,
+  "_llm_cost_per_script": "One-time AI translation cost per script. null = use the measured token cost of the latest translation run if a price is set in .env, otherwise 0."
+}

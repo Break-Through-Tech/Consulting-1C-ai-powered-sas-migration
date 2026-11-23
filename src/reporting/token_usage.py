@@ -45,6 +45,7 @@ class TokenCall:
     cached: int = 0
     total: int = 0
     reported: bool = True  # False if the response had no usage_metadata
+    seconds: float | None = None  # wall-clock time of the API call
 
 
 @dataclass
@@ -52,8 +53,8 @@ class TokenUsageTracker:
     model: str = ""
     calls: list[TokenCall] = field(default_factory=list)
 
-    def record(self, label: str, response: Any) -> TokenCall:
-        """Record the token counts from one Gemini response."""
+    def record(self, label: str, response: Any, seconds: float | None = None) -> TokenCall:
+        """Record the token counts (and, if given, the duration) of one Gemini response."""
         meta = getattr(response, "usage_metadata", None)
         call = TokenCall(
             label=label,
@@ -63,6 +64,7 @@ class TokenUsageTracker:
             cached=_count(meta, "cached_content_token_count"),
             total=_count(meta, "total_token_count"),
             reported=meta is not None,
+            seconds=None if seconds is None else round(seconds, 3),
         )
         if call.reported and not call.total:
             call.total = call.prompt + call.output + call.thinking
@@ -72,15 +74,30 @@ class TokenUsageTracker:
     def totals(self) -> dict[str, int]:
         return {name: sum(getattr(c, name) for c in self.calls) for name in COUNT_FIELDS}
 
-    def estimated_cost(self) -> float | None:
-        """USD estimate from GEMINI_INPUT_PRICE_PER_M / GEMINI_OUTPUT_PRICE_PER_M, if both are set."""
+    def seconds(self) -> float:
+        """Total time spent waiting on API calls."""
+        return round(sum(c.seconds or 0 for c in self.calls), 3)
+
+    @staticmethod
+    def _prices() -> tuple[float, float] | None:
         try:
-            input_price = float(os.environ["GEMINI_INPUT_PRICE_PER_M"])
-            output_price = float(os.environ["GEMINI_OUTPUT_PRICE_PER_M"])
+            return (float(os.environ["GEMINI_INPUT_PRICE_PER_M"]),
+                    float(os.environ["GEMINI_OUTPUT_PRICE_PER_M"]))
         except (KeyError, ValueError):
             return None
-        t = self.totals()
-        return (t["prompt"] * input_price + (t["output"] + t["thinking"]) * output_price) / 1_000_000
+
+    def call_cost(self, call: TokenCall) -> float | None:
+        """USD estimate for one call, if prices are set."""
+        prices = self._prices()
+        if prices is None:
+            return None
+        return (call.prompt * prices[0] + (call.output + call.thinking) * prices[1]) / 1_000_000
+
+    def estimated_cost(self) -> float | None:
+        """USD estimate from GEMINI_INPUT_PRICE_PER_M / GEMINI_OUTPUT_PRICE_PER_M, if both are set."""
+        if self._prices() is None:
+            return None
+        return sum(self.call_cost(c) for c in self.calls)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -88,6 +105,7 @@ class TokenUsageTracker:
             "api_calls": len(self.calls),
             "calls_without_usage": sum(not c.reported for c in self.calls),
             "totals": self.totals(),
+            "api_seconds": self.seconds(),
             "estimated_cost_usd": self.estimated_cost(),
             "calls": [asdict(c) for c in self.calls],
         }
@@ -98,13 +116,15 @@ class TokenUsageTracker:
             lines += ["No API calls made (translation skipped): 0 tokens used.", "=" * 64]
             return "\n".join(lines)
         lines.append(f"Model: {self.model or 'unknown'}    API calls: {len(self.calls)}")
-        lines.append(f"  {'call':<44}{'prompt':>9}{'output':>9}{'thinking':>9}{'total':>10}")
+        lines.append(f"  {'call':<44}{'prompt':>9}{'output':>9}{'thinking':>9}{'total':>10}{'secs':>8}")
         for c in self.calls:
             label = c.label if len(c.label) <= 43 else c.label[:40] + "..."
             note = "" if c.reported else "  (no usage reported)"
-            lines.append(f"  {label:<44}{c.prompt:>9,}{c.output:>9,}{c.thinking:>9,}{c.total:>10,}{note}")
+            secs = "" if c.seconds is None else f"{c.seconds:.1f}"
+            lines.append(f"  {label:<44}{c.prompt:>9,}{c.output:>9,}{c.thinking:>9,}{c.total:>10,}{secs:>8}{note}")
         t = self.totals()
-        lines.append(f"  {'TOTAL':<44}{t['prompt']:>9,}{t['output']:>9,}{t['thinking']:>9,}{t['total']:>10,}")
+        lines.append(f"  {'TOTAL':<44}{t['prompt']:>9,}{t['output']:>9,}{t['thinking']:>9,}{t['total']:>10,}"
+                     f"{self.seconds():>8.1f}")
         if t["cached"]:
             lines.append(f"  ({t['cached']:,} of the prompt tokens were served from cache)")
         cost = self.estimated_cost()
@@ -125,7 +145,7 @@ def save_token_usage(usage: TokenUsageTracker, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "token_usage.json").write_text(json.dumps(usage.to_dict(), indent=2))
     with (out_dir / "token_usage_calls.csv").open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["label", *COUNT_FIELDS, "reported"])
+        writer = csv.DictWriter(f, fieldnames=["label", *COUNT_FIELDS, "reported", "seconds"])
         writer.writeheader()
         writer.writerows(asdict(c) for c in usage.calls)
 
