@@ -6,3 +6,5 @@ __pycache__/
 logs/
 src/orchestrator/actual_output/
 .venv/
+verification_output/
+.pytest_cache/

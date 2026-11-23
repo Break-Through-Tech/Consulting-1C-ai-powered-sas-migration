@@ -14,6 +14,7 @@ from translation.translation import translate_sas_files
 from validation.validation import compare_dataframe, ValidationResult
 from orchestrator.repair import decide_next_action
 from reporting.logger import log_results
+from reporting.verification_output import write_verification_output
 from reporting.accuracy_report import (
     build_accuracy_report, format_accuracy_report, save_accuracy_report, unvalidated_references,
 )
@@ -23,6 +24,8 @@ TRANSLATED_DIR = REPO_ROOT / "src" / "translation" / "translated_files"
 ACTUAL_OUTPUT_DIR = REPO_ROOT / "src" / "orchestrator" / "actual_output"
 REFERENCE_DIR = REPO_ROOT / "data" / "Project_1" / "SAS Output CSV"
 LOG_DIR = REPO_ROOT / "logs"
+# latest verification result and the accuracy history across runs
+VERIFICATION_OUTPUT_DIR = REPO_ROOT / "verification_output"
 # one folder per pipeline run, holding a snapshot of every attempt
 RUN_DIR = LOG_DIR / f"run_{datetime.now():%Y%m%d_%H%M%S}"
 
@@ -310,6 +313,14 @@ while attempt <= MAX_ATTEMPTS:
     accuracy = build_accuracy_report(all_results, REFERENCE_DIR, ACTUAL_OUTPUT_DIR)
     print(format_accuracy_report(accuracy))
     save_accuracy_report(accuracy, attempt_dir)
+    report_path = write_verification_output(
+        accuracy, all_results, VERIFICATION_OUTPUT_DIR,
+        run=RUN_DIR.name, attempt=attempt,
+        translation="skipped (existing translated files)" if SKIP_TRANSLATION_FOR_TESTING
+                    else "fresh SAS-to-Python translation",
+        checks_passed=len(flat_results) - failure_count, checks_failed=failure_count,
+    )
+    print(f"Verification output written to {report_path.relative_to(REPO_ROOT)}")
     if best is None or failure_count < best[1]:
         best = (attempt, failure_count, attempt_dir)
 
