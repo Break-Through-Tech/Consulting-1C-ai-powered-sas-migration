@@ -27,7 +27,7 @@ ASSUMPTIONS = {
     "runs_per_year": 10, "server_cost_per_hour": 36,
     "sas_maintenance_hours_per_script": 2, "python_maintenance_hours_per_script": 1,
     "sas_developer_hourly_rate": 50, "python_developer_hourly_rate": 50,
-    "conversion_review_hours_per_script": 2, "llm_cost_per_script": None,
+    "llm_cost_per_script": None,
 }
 
 
@@ -64,17 +64,23 @@ class PythonStageTimingTests(unittest.TestCase):
 class CostSavingsTests(unittest.TestCase):
     def test_per_script_savings_math(self):
         scripts = [
-            {"script": "a", "sas_file": "a.sas", "lines": 30, "sas_runtime_seconds": 3600, "python_runtime_seconds": 1800},
-            {"script": "b", "sas_file": "b.sas", "lines": 10, "sas_runtime_seconds": None, "python_runtime_seconds": None},
+            {"script": "a", "sas_file": "a.sas", "lines": 30, "sas_runtime_seconds": 3600,
+             "python_runtime_seconds": 1800, "tokens_used": 12000},
+            {"script": "b", "sas_file": "b.sas", "lines": 10, "sas_runtime_seconds": None,
+             "python_runtime_seconds": None, "tokens_used": None},
         ]
         s = estimate_savings(scripts, ASSUMPTIONS, {"a.sas": 0.5})
         a, b = s["scripts"]
         # licence 500 + compute (10 runs x 0.5 h saved x 36) 180 + maintenance (2-1) x 50 = 50
         self.assertAlmostEqual(a["annual_savings"], 500 + 180 + 50)
-        self.assertAlmostEqual(a["one_time_conversion_cost"], 2 * 50 + 0.5)
-        self.assertAlmostEqual(a["payback_months"], round(100.5 / (730 / 12), 1))
-        self.assertAlmostEqual(b["annual_savings"], 500 + 50)
+        # conversion cost is the AI tokens only: no review labor
+        self.assertAlmostEqual(a["ai_conversion_cost"], 0.5)
+        self.assertEqual(a["tokens_used"], 12000)
+        self.assertNotIn("one_time_conversion_cost", a)
+        self.assertAlmostEqual(a["payback_months"], round(0.5 / (730 / 12), 2))
+        self.assertEqual((b["ai_conversion_cost"], b["payback_months"]), (0, 0))
         self.assertAlmostEqual(s["totals"]["annual_savings"], 730 + 550)
+        self.assertEqual(s["totals"]["tokens_used"], 12000)
 
     def test_lines_of_code_allocation_and_no_savings_payback(self):
         scripts = [{"script": n, "sas_file": n, "lines": l, "sas_runtime_seconds": 0, "python_runtime_seconds": 0}
@@ -110,15 +116,19 @@ class RunSummaryTests(unittest.TestCase):
             (root / "a.json").write_text(json.dumps(ASSUMPTIONS))
             (latest / "verification_report.md").write_text("# Report\n")
 
+            meta = SimpleNamespace(prompt_token_count=900, candidates_token_count=100, thoughts_token_count=0,
+                                   cached_content_token_count=0, total_token_count=1000)
             usage = TokenUsageTracker()
-            usage.record("translate 0 - Standardize.sas", SimpleNamespace(usage_metadata=None), seconds=4.2)
+            usage.record("translate 0 - Standardize.sas", SimpleNamespace(usage_metadata=meta), seconds=4.2)
+            usage.record("generate README.md", SimpleNamespace(usage_metadata=meta), seconds=1.0)
+            last = root / "out" / "last_translation_tokens.json"
             summary = build_run_summary(
                 sas_files_dir=sas_dir, sas_log=root / "SAS_Log.log", translated_dir=py_dir,
-                assumptions_path=root / "a.json", usage=usage,
+                assumptions_path=root / "a.json", usage=usage, last_translation_path=last,
                 phase_seconds={"translation_seconds": 5.0, "validation_seconds": 2.0, "attempt_seconds": 7.0},
             )
             write_run_summary(summary, latest, root / "out" / "runtime_history.csv",
-                              run="r", attempt=1, translation="fresh")
+                              run="r", attempt=1, translation="fresh", last_translation_path=last)
 
             rows = {r["script"]: r for r in summary["runtime"]}
             self.assertEqual(rows["0 - Standardize"]["translation_seconds"], 4.2)
@@ -126,6 +136,29 @@ class RunSummaryTests(unittest.TestCase):
             report = (latest / "verification_report.md").read_text()
             self.assertIn("## Run time", report)
             self.assertIn("## Estimated cost savings", report)
+            self.assertIn("| Tokens used | AI conversion cost |", report)
+            self.assertIn("no review labor", report)
+            savings_rows = {r["script"]: r for r in summary["savings"]["scripts"]}
+            self.assertEqual(savings_rows["0 - Standardize"]["tokens_used"], 1000)
+            self.assertEqual(summary["tokens"]["other_tokens"], 1000)  # README call isn't a script
+
+            # a later run that skips translation reuses the saved per-script tokens
+            skipped = build_run_summary(
+                sas_files_dir=sas_dir, sas_log=root / "SAS_Log.log", translated_dir=py_dir,
+                assumptions_path=root / "a.json", usage=TokenUsageTracker(), last_translation_path=last,
+                phase_seconds={},
+            )
+            self.assertIn("last translation run (r,", skipped["tokens"]["source"])
+            self.assertEqual({r["script"]: r["tokens_used"] for r in skipped["savings"]["scripts"]}["0 - Standardize"], 1000)
+
+            # with nothing saved, tokens are reported as not measured
+            fresh = build_run_summary(
+                sas_files_dir=sas_dir, sas_log=root / "SAS_Log.log", translated_dir=py_dir,
+                assumptions_path=root / "a.json", usage=TokenUsageTracker(),
+                last_translation_path=root / "missing.json", phase_seconds={},
+            )
+            self.assertIn("not measured", fresh["tokens"]["note"])
+            self.assertIsNone(fresh["savings"]["totals"]["tokens_used"])
             for name in ("runtime.csv", "runtime.json", "cost_savings.csv", "cost_savings.json"):
                 self.assertTrue((latest / name).exists(), name)
             with (root / "out" / "runtime_history.csv").open() as f:

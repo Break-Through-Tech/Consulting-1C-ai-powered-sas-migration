@@ -325,9 +325,16 @@ After each attempt the pipeline also reports
 * **Estimated annual cost savings per script:**
   * SAS cost per year (licence share, compute, maintenance) minus Python
     cost per year (compute, maintenance)
-  * a one-time conversion cost (review hours plus the measured AI
-    translation cost)
+  * **tokens used** to convert each script, and the **AI conversion cost**
+    of those tokens: AI translation only, with no review labor included
   * first-year net savings and payback period
+* **Tokens on runs that skip translation:** each translation run saves its
+  per-script token counts to `verification_output/last_translation_tokens.json`.
+  Runs that skip translation reuse them and say which run they came from.
+  Before the first translation run, tokens show as "not measured".
+* **AI cost:** tokens are priced with `GEMINI_INPUT_PRICE_PER_M` and
+  `GEMINI_OUTPUT_PRICE_PER_M` from `.env`. With no prices set, which is the
+  right setting for free-tier usage, the AI cost is $0 and the report says so.
 * **Outputs in `verification_output/`:**
   * `latest/runtime.csv` and `latest/cost_savings.csv`, plus JSON versions
   * new "Run time" and "Estimated cost savings" sections in
@@ -336,7 +343,7 @@ After each attempt the pipeline also reports
 
 The savings estimate uses `config/cost_assumptions.json`, where every value
 is a **placeholder** (SAS licence cost, runs per year, server cost,
-maintenance hours, hourly rates, review hours). Replace them with your
+maintenance hours, hourly rates). Replace them with your
 organization's real figures before sharing the numbers. The licence share is
 only a real saving if the SAS licence is reduced or retired after the
 conversion.
