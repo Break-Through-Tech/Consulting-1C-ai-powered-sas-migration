@@ -6,16 +6,18 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 import importlib.util
+import time
 import pandas as pd
 
 SRC_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC_DIR))
-from translation.translation import translate_sas_files, MODEL
+from translation.translation import translate_sas_files, MODEL, SAS_FILES_DIR
 from validation.validation import compare_dataframe, ValidationResult
 from orchestrator.repair import decide_next_action
 from reporting.logger import log_results
 from reporting.verification_output import write_verification_output
 from reporting.token_usage import TokenUsageTracker, save_token_usage, append_token_history
+from reporting.run_summary import build_run_summary, print_run_summary, write_run_summary
 from reporting.accuracy_report import (
     build_accuracy_report, format_accuracy_report, save_accuracy_report, unvalidated_references,
 )
@@ -27,6 +29,9 @@ REFERENCE_DIR = REPO_ROOT / "data" / "Project_1" / "SAS Output CSV"
 LOG_DIR = REPO_ROOT / "logs"
 # latest verification result and the accuracy history across runs
 VERIFICATION_OUTPUT_DIR = REPO_ROOT / "verification_output"
+# SAS run times are read from this log; cost savings use these assumptions
+SAS_LOG = REPO_ROOT / "data" / "Project_1" / "SAS Programs" / "SAS_Log.log"
+COST_ASSUMPTIONS = REPO_ROOT / "config" / "cost_assumptions.json"
 # one folder per pipeline run, holding a snapshot of every attempt
 RUN_DIR = LOG_DIR / f"run_{datetime.now():%Y%m%d_%H%M%S}"
 
@@ -235,16 +240,20 @@ best = None                    # (attempt, failure_count, saved attempt folder) 
 TRANSLATION_MODE = ("skipped (existing translated files)" if SKIP_TRANSLATION_FOR_TESTING
                     else "fresh SAS-to-Python translation")
 run_usage = TokenUsageTracker(model=MODEL)  # every API call across all attempts of this run
+run_start = time.perf_counter()
 while attempt <= MAX_ATTEMPTS:
     last_attempt = attempt
     print(f"\nTranslation + validation attempt {attempt}/{MAX_ATTEMPTS}")
     usage = TokenUsageTracker(model=MODEL)
+    attempt_start = time.perf_counter()
+    translation_seconds = None
 
     if SKIP_TRANSLATION_FOR_TESTING:
         print("SKIP_TRANSLATION_FOR_TESTING is on — using existing files in translated_files/, no API call made.")
     else:
         try:
             call_translator(issue_report, usage)
+            translation_seconds = round(time.perf_counter() - attempt_start, 2)
         except Exception:
             # tokens spent before the failure still count; save them before stopping
             failed_dir = RUN_DIR / f"attempt_{attempt}"
@@ -255,6 +264,7 @@ while attempt <= MAX_ATTEMPTS:
 
     # start each attempt from a clean slate so the freshly translated files are the ones that run
     clear_stage_modules()
+    validation_start = time.perf_counter()
 
     translated_paths = sorted(TRANSLATED_DIR.glob("*.py"))
     stage_paths = [p for p in translated_paths if p.suffix == ".py" and p.name != "translated_pipeline.py"]
@@ -346,6 +356,20 @@ while attempt <= MAX_ATTEMPTS:
         token_usage=usage.to_dict(),
     )
     record_token_usage(usage, attempt, attempt_dir)
+
+    # run time (conversion, SAS vs Python) and estimated annual cost savings per script
+    validation_seconds = round(time.perf_counter() - validation_start, 2)
+    run_summary = build_run_summary(
+        sas_files_dir=SAS_FILES_DIR, sas_log=SAS_LOG, translated_dir=TRANSLATED_DIR,
+        assumptions_path=COST_ASSUMPTIONS, usage=usage,
+        phase_seconds={"translation_seconds": translation_seconds,
+                       "validation_seconds": validation_seconds,
+                       "attempt_seconds": round(time.perf_counter() - attempt_start, 2)},
+    )
+    print_run_summary(run_summary)
+    write_run_summary(run_summary, VERIFICATION_OUTPUT_DIR / "latest",
+                      VERIFICATION_OUTPUT_DIR / "runtime_history.csv",
+                      run=RUN_DIR.name, attempt=attempt, translation=TRANSLATION_MODE)
     print(f"Verification output written to {report_path.relative_to(REPO_ROOT)}")
     if best is None or failure_count < best[1]:
         best = (attempt, failure_count, attempt_dir)
@@ -362,6 +386,7 @@ if last_attempt > 1:
     print(run_usage.format_summary(f"TOKEN USAGE: whole run ({last_attempt} attempts)"))
 print(f"\nBest attempt: {best_attempt} of {last_attempt}, with {best_failure_count} failed check(s). "
       f"Snapshots of every attempt are in {RUN_DIR.relative_to(REPO_ROOT)}")
+print(f"Total pipeline run time: {time.perf_counter() - run_start:.1f}s")
 # a later attempt can be worse than an earlier one; leave translated_files/ at the best
 if best_attempt != last_attempt and not SKIP_TRANSLATION_FOR_TESTING:
     restore_attempt(best_dir)

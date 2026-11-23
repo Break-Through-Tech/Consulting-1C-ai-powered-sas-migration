@@ -96,6 +96,35 @@ records the exact token counts Gemini reports for every API call
   `GEMINI_OUTPUT_PRICE_PER_M` (USD per 1M tokens) in `.env`. Thinking tokens
   are priced as output.
 
+### Run time and estimated cost savings
+
+After each attempt the pipeline also reports
+(`src/reporting/runtime.py`, `cost_savings.py`, `run_summary.py`):
+
+* **Run time:** for each script, how long the AI took to convert it, how long
+  it ran in SAS (summed from the step timings in `SAS_Log.log`), and how long
+  the Python translation takes. Each stage is timed on its own. It also shows
+  how long the attempt's translation and validation phases took, plus the
+  total pipeline run time.
+* **Estimated annual cost savings per script:**
+  * SAS cost per year (licence share, compute, maintenance) minus Python
+    cost per year (compute, maintenance)
+  * a one-time conversion cost (review hours plus the measured AI
+    translation cost)
+  * first-year net savings and payback period
+* **Outputs in `verification_output/`:**
+  * `latest/runtime.csv` and `latest/cost_savings.csv`, plus JSON versions
+  * new "Run time" and "Estimated cost savings" sections in
+    `verification_report.md`
+  * one row per attempt in `runtime_history.csv`
+
+The savings estimate uses `config/cost_assumptions.json`, where every value
+is a **placeholder** (SAS licence cost, runs per year, server cost,
+maintenance hours, hourly rates, review hours). Replace them with your
+organization's real figures before sharing the numbers. The licence share is
+only a real saving if the SAS licence is reduced or retired after the
+conversion.
+
 ---
 
 ## 🏗️ **Project Overview**
