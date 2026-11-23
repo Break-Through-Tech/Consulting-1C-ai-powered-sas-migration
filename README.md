@@ -78,6 +78,24 @@ the existing translated files or a fresh SAS-to-Python translation:
 
 `latest/` is replaced on every run. The folder is gitignored.
 
+### Token usage
+
+When the pipeline translates (`SKIP_TRANSLATION_FOR_TESTING = False`), it
+records the exact token counts Gemini reports for every API call
+(`src/reporting/token_usage.py`):
+
+* Each translation call prints its tokens as it runs, and each attempt ends
+  with a table of prompt, output, thinking and total tokens per call. If a run
+  has more than one attempt, a whole-run total is printed too.
+* `verification_output/latest/token_usage.json` and `token_usage_calls.csv`
+  hold the latest attempt's counts, and the verification report includes the
+  total.
+* `verification_output/token_usage_history.csv` gets one row per attempt.
+  Runs that skip translation are logged with 0 tokens.
+* Optional cost estimate: set `GEMINI_INPUT_PRICE_PER_M` and
+  `GEMINI_OUTPUT_PRICE_PER_M` (USD per 1M tokens) in `.env`. Thinking tokens
+  are priced as output.
+
 ---
 
 ## 🏗️ **Project Overview**

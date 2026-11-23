@@ -72,6 +72,18 @@ def _markdown(report: dict, info: dict) -> str:
     for stage in report["crashed_stages"]:
         lines.append(f"- CRASHED: `{stage}`")
 
+    tokens = info.get("token_usage")
+    if tokens is not None:
+        if tokens["api_calls"]:
+            t = tokens["totals"]
+            line = (f"- Token usage: **{t['total']:,} tokens** over {tokens['api_calls']} API calls "
+                    f"({t['prompt']:,} prompt, {t['output']:,} output, {t['thinking']:,} thinking)")
+            if tokens.get("estimated_cost_usd") is not None:
+                line += f", est. ${tokens['estimated_cost_usd']:.4f}"
+            lines.append(line)
+        else:
+            lines.append("- Token usage: 0 (translation skipped, no API calls)")
+
     lines += ["", "## Accuracy by table", "",
               "| SAS output | Accuracy | Values compared | Mismatched | Status |",
               "|---|---:|---:|---:|---|"]
@@ -105,6 +117,7 @@ def write_verification_output(
     translation: str,
     checks_passed: int,
     checks_failed: int,
+    token_usage: dict[str, Any] | None = None,
 ) -> Path:
     """Write latest/ and append to accuracy_history.csv. Returns the report path."""
     out_dir = Path(out_dir)
@@ -123,6 +136,7 @@ def write_verification_output(
         "verdict": _verdict(report, checks_failed),
         "checks_passed": checks_passed,
         "checks_failed": checks_failed,
+        "token_usage": token_usage,
     }
 
     _write_csv(latest / "table_accuracy.csv",
