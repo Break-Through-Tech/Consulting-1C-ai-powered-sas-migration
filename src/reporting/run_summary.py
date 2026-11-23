@@ -20,6 +20,7 @@ from typing import Any
 
 from .cost_savings import count_code_lines, estimate_savings, format_savings, load_assumptions, save_savings
 from .runtime import runtime_table, sas_runtime_by_program, time_python_stages
+from .token_usage import TokenCall, TokenUsageTracker
 
 RUNTIME_FIELDS = ["script", "sas_file", "python_file", "translation_seconds",
                   "sas_runtime_seconds", "python_runtime_seconds", "speedup", "note"]
@@ -46,20 +47,18 @@ def build_run_summary(
     assumptions_path: Path,
     usage: Any,
     phase_seconds: dict[str, float | None],
+    last_translation_path: Path | None = None,
 ) -> dict[str, Any]:
     sas_files = sorted(p.name for p in Path(sas_files_dir).glob("*.sas"))
     sas_seconds = (sas_runtime_by_program(sas_log, sas_files) if Path(sas_log).exists()
                    else {f: None for f in sas_files})
     python_timings = time_python_stages(translated_dir)
 
-    translation_seconds, llm_cost = {}, {}
-    for call in getattr(usage, "calls", []):
-        if call.label.startswith("translate "):
-            name = call.label[len("translate "):]
-            translation_seconds[name] = call.seconds
-            cost = usage.call_cost(call)
-            if cost is not None:
-                llm_cost[name] = cost
+    translation_seconds = {
+        c.label[len("translate "):]: c.seconds
+        for c in getattr(usage, "calls", []) if c.label.startswith("translate ")
+    }
+    tokens = token_source(usage, last_translation_path)
 
     rows = runtime_table(sas_seconds, python_timings, translation_seconds)
     totals = {
@@ -71,13 +70,55 @@ def build_run_summary(
     savings = None
     savings_error = None
     try:
-        scripts = [{**r, "lines": count_code_lines(Path(sas_files_dir) / r["sas_file"])} for r in rows]
-        savings = estimate_savings(scripts, load_assumptions(assumptions_path), llm_cost)
+        scripts = [{**r, "lines": count_code_lines(Path(sas_files_dir) / r["sas_file"]),
+                    "tokens_used": tokens["by_script"].get(r["sas_file"])} for r in rows]
+        savings = estimate_savings(scripts, load_assumptions(assumptions_path), tokens["cost_by_script"])
     except (OSError, ValueError) as exc:
         savings_error = str(exc)
 
     return {"runtime": rows, "runtime_totals": totals, "phases": phase_seconds,
-            "savings": savings, "savings_error": savings_error}
+            "savings": savings, "savings_error": savings_error, "tokens": tokens}
+
+
+def token_source(usage: Any, last_translation_path: Path | None) -> dict[str, Any]:
+    """
+    Tokens used per SAS script, from this run's translation if there was one,
+    otherwise from the last saved translation run. Costs are priced with the
+    current GEMINI_*_PRICE_PER_M values; with no prices set they count as $0.
+    """
+    calls, source, model = list(getattr(usage, "calls", [])), "this run", getattr(usage, "model", "")
+    if not any(c.label.startswith("translate ") for c in calls):
+        calls = []
+        if last_translation_path is not None and Path(last_translation_path).exists():
+            saved = json.loads(Path(last_translation_path).read_text(encoding="utf-8"))
+            calls = [TokenCall(**c) for c in saved.get("calls", [])]
+            model = saved.get("model", "")
+            source = f"last translation run ({saved.get('run', '?')}, {saved.get('timestamp', '?')})"
+        else:
+            source = "not measured: no translation run yet"
+
+    priced = TokenUsageTracker(model=model, calls=calls)
+    priced_ok = priced.estimated_cost() is not None
+    by_script, cost_by_script, other = {}, {}, 0
+    for c in calls:
+        if c.label.startswith("translate "):
+            name = c.label[len("translate "):]
+            by_script[name] = c.total
+            if priced_ok:
+                cost_by_script[name] = priced.call_cost(c)
+        else:
+            other += c.total
+
+    if not calls:
+        note = "Tokens: not measured yet (run once with SKIP_TRANSLATION_FOR_TESTING = False)."
+    else:
+        note = f"Tokens from {source}."
+        if other:
+            note += f" Another {other:,} tokens went to generating the README (not in any script)."
+        if not priced_ok:
+            note += " No token prices set in .env, so AI cost counts as $0 (e.g. free tier)."
+    return {"source": source, "model": model, "calls": calls, "by_script": by_script,
+            "cost_by_script": cost_by_script, "other_tokens": other, "priced": priced_ok, "note": note}
 
 
 def format_runtime(summary: dict[str, Any]) -> str:
@@ -114,6 +155,7 @@ def _markdown(summary: dict[str, Any]) -> str:
 
     lines += ["", "## Estimated cost savings (per year)", ""]
     s = summary["savings"]
+    tokens = summary.get("tokens") or {}
     if s is None:
         lines.append(f"Not calculated: {summary['savings_error']}")
         return "\n".join(lines) + "\n"
@@ -126,23 +168,47 @@ def _markdown(summary: dict[str, Any]) -> str:
         f"- Annual savings, all scripts: **{c} {tot['annual_savings']:,.2f}** "
         f"(licence {tot['license_savings']:,.2f}, maintenance {tot['maintenance_savings']:,.2f}, "
         f"compute {tot['compute_savings']:,.4f})",
-        f"- One-time conversion cost: {c} {tot['one_time_conversion_cost']:,.2f}; "
-        f"first-year net: **{c} {tot['first_year_net_savings']:,.2f}**"
-        + (f"; payback {tot['payback_months']} months" if tot["payback_months"] is not None else ""),
-        "", f"| Script | SAS cost/yr | Python cost/yr | Savings/yr | One-time cost | Year-1 net | Payback (months) |",
-        "|---|---:|---:|---:|---:|---:|---:|"]
+        "- AI conversion cost (translation tokens only, no review labor): "
+        + (f"{c} {tot['ai_conversion_cost']:,.4f} for {_tok(tot['tokens_used'])} tokens"
+           if tot["tokens_used"] is not None else "not measured yet")
+        + f"; first-year net: **{c} {tot['first_year_net_savings']:,.2f}**"
+        + _payback_text(tot["payback_months"]),
+        f"- {tokens.get('note', '')}",
+        "", "| Script | SAS cost/yr | Python cost/yr | Savings/yr | Tokens used | AI conversion cost | Year-1 net | Payback (months) |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|"]
     for r in s["scripts"]:
         payback = "n/a" if r["payback_months"] is None else r["payback_months"]
         lines.append(f"| {r['script']} | {r['sas_annual_cost']:,.2f} | {r['python_annual_cost']:,.2f} | "
-                     f"{r['annual_savings']:,.2f} | {r['one_time_conversion_cost']:,.2f} | "
+                     f"{r['annual_savings']:,.2f} | {_tok(r['tokens_used'])} | {r['ai_conversion_cost']:,.4f} | "
                      f"{r['first_year_net_savings']:,.2f} | {payback} |")
     return "\n".join(lines) + "\n"
 
 
+def _payback_text(months) -> str:
+    if months is None:
+        return ""
+    return "; payback immediate (no upfront cost)" if months == 0 else f"; payback {months} months"
+
+
+def _tok(value) -> str:
+    return "n/a" if value is None else f"{value:,}"
+
+
 def write_run_summary(summary: dict[str, Any], latest_dir: Path, history_path: Path, *,
-                      run: str, attempt: int, translation: str) -> None:
+                      run: str, attempt: int, translation: str,
+                      last_translation_path: Path | None = None) -> None:
     latest_dir = Path(latest_dir)
     latest_dir.mkdir(parents=True, exist_ok=True)
+
+    # remember this run's per-script tokens so runs that skip translation can still report them
+    tokens = summary.get("tokens") or {}
+    if last_translation_path is not None and tokens.get("source") == "this run":
+        Path(last_translation_path).write_text(json.dumps({
+            "timestamp": datetime.now().isoformat(timespec="seconds"), "run": run, "attempt": attempt,
+            "model": tokens.get("model", ""),
+            "calls": [{k: getattr(c, k) for k in ("label", "prompt", "output", "thinking", "cached",
+                                                   "total", "reported", "seconds")} for c in tokens["calls"]],
+        }, indent=2))
     (latest_dir / "runtime.json").write_text(json.dumps(
         {k: summary[k] for k in ("runtime", "runtime_totals", "phases")}, indent=2))
     with (latest_dir / "runtime.csv").open("w", newline="", encoding="utf-8") as f:
@@ -180,6 +246,6 @@ def write_run_summary(summary: dict[str, Any], latest_dir: Path, history_path: P
 def print_run_summary(summary: dict[str, Any]) -> None:
     print(format_runtime(summary))
     if summary["savings"] is not None:
-        print(format_savings(summary["savings"]))
+        print(format_savings(summary["savings"], (summary.get("tokens") or {}).get("note", "")))
     else:
         print(f"Cost savings not calculated: {summary['savings_error']}")

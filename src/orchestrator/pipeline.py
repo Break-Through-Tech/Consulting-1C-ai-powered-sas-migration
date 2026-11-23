@@ -32,6 +32,8 @@ VERIFICATION_OUTPUT_DIR = REPO_ROOT / "verification_output"
 # SAS run times are read from this log; cost savings use these assumptions
 SAS_LOG = REPO_ROOT / "data" / "Project_1" / "SAS Programs" / "SAS_Log.log"
 COST_ASSUMPTIONS = REPO_ROOT / "config" / "cost_assumptions.json"
+# per-script tokens from the most recent translation run, reused when translation is skipped
+LAST_TRANSLATION_TOKENS = VERIFICATION_OUTPUT_DIR / "last_translation_tokens.json"
 # one folder per pipeline run, holding a snapshot of every attempt
 RUN_DIR = LOG_DIR / f"run_{datetime.now():%Y%m%d_%H%M%S}"
 
@@ -361,7 +363,7 @@ while attempt <= MAX_ATTEMPTS:
     validation_seconds = round(time.perf_counter() - validation_start, 2)
     run_summary = build_run_summary(
         sas_files_dir=SAS_FILES_DIR, sas_log=SAS_LOG, translated_dir=TRANSLATED_DIR,
-        assumptions_path=COST_ASSUMPTIONS, usage=usage,
+        assumptions_path=COST_ASSUMPTIONS, usage=usage, last_translation_path=LAST_TRANSLATION_TOKENS,
         phase_seconds={"translation_seconds": translation_seconds,
                        "validation_seconds": validation_seconds,
                        "attempt_seconds": round(time.perf_counter() - attempt_start, 2)},
@@ -369,7 +371,8 @@ while attempt <= MAX_ATTEMPTS:
     print_run_summary(run_summary)
     write_run_summary(run_summary, VERIFICATION_OUTPUT_DIR / "latest",
                       VERIFICATION_OUTPUT_DIR / "runtime_history.csv",
-                      run=RUN_DIR.name, attempt=attempt, translation=TRANSLATION_MODE)
+                      run=RUN_DIR.name, attempt=attempt, translation=TRANSLATION_MODE,
+                      last_translation_path=LAST_TRANSLATION_TOKENS)
     print(f"Verification output written to {report_path.relative_to(REPO_ROOT)}")
     if best is None or failure_count < best[1]:
         best = (attempt, failure_count, attempt_dir)
