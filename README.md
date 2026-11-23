@@ -139,7 +139,9 @@ these files exist:
 python -m unittest discover -s tests -t .
 ```
 
-Expected result: `Ran 26 tests ... OK`. The tests use fake data and a fake
+Expected result: `Ran 37 tests ... OK (skipped=3)`. The 3 skipped tests
+cover the web app's page and run once Streamlit is installed
+(`pip install -r app/requirements.txt`). The tests use fake data and a fake
 Gemini client, so they make no API calls.
 
 ### Step 7: Run the pipeline
@@ -190,6 +192,77 @@ savings estimate. For what every output file contains, see
 If a check fails, the terminal prints `[FAIL]` lines naming the table and
 columns that differ, and the report lists them as well.
 
+### Web app: drag-and-drop converter
+
+`app/streamlit_app.py` is a web app for converting SAS without the
+command line. You drop in `.sas` files and get back:
+* the Python translation of each file, shown next to the SAS source, with
+  downloads
+* a **finance summary** for each script: estimated savings per year, tokens
+  used, AI conversion cost, first-year net savings and payback. Visitors can
+  change the cost assumptions in the sidebar.
+* a `.zip` with all of the Python files, `finance_summary.csv` and `summary.md`
+
+It uses the same Gemini model, file ordering, token tracking and cost model as
+the pipeline, with a general-purpose prompt so it works on any SAS program.
+The generated Python is syntax-checked but **never executed or validated
+against SAS**. Only the CMS star rating pipeline above is validated.
+
+**How the shared API key is protected**
+* The Gemini key lives only in the app's server-side **secrets**. The browser
+  never receives it, and it isn't in the repo.
+* Visitors must enter an **access code** before they can translate anything.
+  After 5 wrong codes, that browser is locked out for 10 minutes.
+* **Limits:** `.sas` files only, up to 10 files and 200 KB each per
+  translation; 5 translations per browser session per hour; and a daily cap
+  across all visitors (`DAILY_TRANSLATION_LIMIT`, default 50).
+* The app warns visitors not to upload confidential code, because files are
+  sent to Google's Gemini API.
+
+**Run it locally**
+```bash
+python -m pip install -r app/requirements.txt
+```
+Then create `.streamlit/secrets.toml` (it's gitignored) containing:
+```toml
+GEMINI_API_KEY = "your-key"
+ACCESS_CODE = "choose-a-code"
+# optional
+DAILY_TRANSLATION_LIMIT = 50
+GEMINI_INPUT_PRICE_PER_M = 0.0    # USD per 1M tokens; leave 0 for the free tier
+GEMINI_OUTPUT_PRICE_PER_M = 0.0
+```
+Then run:
+```bash
+streamlit run app/streamlit_app.py
+```
+It opens at http://localhost:8501. Run it from the repo root so the settings
+in `.streamlit/config.toml` are used.
+
+**Deploy it for free on Streamlit Community Cloud**
+1. Push the code to a GitHub repo you control, such as your fork.
+2. Go to [share.streamlit.io](https://share.streamlit.io), sign in with GitHub
+   and create a new app from that repo.
+3. Set the branch (e.g. `main`) and the main file path to
+   `app/streamlit_app.py`. Under advanced settings, choose **Python 3.12** and
+   paste the secrets from above (`GEMINI_API_KEY`, `ACCESS_CODE`, plus any
+   optional ones).
+4. Deploy. You get a public `https://<name>.streamlit.app` link. Share it,
+   along with the access code, only with people who should use the key.
+
+Streamlit Cloud installs `app/requirements.txt` (only Streamlit,
+`google-genai` and `python-dotenv`), not the full research environment in the
+root `requirements.txt`. Pushing to the branch redeploys the app
+automatically. Free apps go to sleep when nobody's using them and take about
+30 seconds to wake up.
+
+**If someone else provides the API key:** they should create a separate key
+just for this app in [Google AI Studio](https://aistudio.google.com/apikey),
+so it can be revoked without affecting their other work. They can then add it
+to the app's secrets themselves, or send it to you privately; never put it in
+the repo, an issue or a chat. To stop the app using it, delete the key in AI
+Studio or remove it from the app's secrets.
+
 ### Configuration
 
 | Setting | Where | Default | What it does |
@@ -205,6 +278,13 @@ columns that differ, and the report lists them as well.
 ### Project structure
 
 ```
+├── app/                           # ▶ drag-and-drop web app (streamlit run app/streamlit_app.py)
+│   ├── streamlit_app.py           # the page: access code, upload, results, downloads
+│   ├── translator.py              # Gemini translation (reuses the pipeline's helpers)
+│   ├── finance.py                 # finance summary (reuses the pipeline's cost model)
+│   ├── guard.py                   # access code, upload limits, rate limits
+│   └── requirements.txt           # the app's own small dependency list
+├── .streamlit/config.toml         # app settings (upload limit)
 ├── config/
 │   └── cost_assumptions.json      # inputs for the cost savings estimate (placeholders)
 ├── data/Project_1/

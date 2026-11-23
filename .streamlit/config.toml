@@ -1,0 +1,7 @@
+# Streamlit settings for the SAS to Python Converter app (app/streamlit_app.py).
+[server]
+# Upload limit in MB (the app itself also caps each .sas file at 200 KB).
+maxUploadSize = 1
+
+[browser]
+gatherUsageStats = false

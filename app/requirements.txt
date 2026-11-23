@@ -1,0 +1,5 @@
+# Lightweight requirements for the Streamlit app only (Streamlit Cloud reads this file
+# because it sits next to app/streamlit_app.py). The full pipeline uses ../requirements.txt.
+streamlit==1.41.1
+google-genai==2.29.0
+python-dotenv==1.2.3
