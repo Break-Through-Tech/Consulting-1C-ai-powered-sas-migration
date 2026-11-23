@@ -63,6 +63,21 @@ After validation, the pipeline prints an **accuracy report**
   Python, and how many are off by one. If any differ, a SAS-vs-Python
   confusion table is shown.
 
+Every run also writes a **verification output** to `verification_output/`
+(`src/reporting/verification_output.py`). It's the same whether the run used
+the existing translated files or a fresh SAS-to-Python translation:
+
+* `latest/verification_report.md`: a readable summary with a PASS/FAIL
+  verdict, overall value accuracy, star agreement and accuracy by table
+* `latest/table_accuracy.csv` and `latest/column_accuracy.csv`: the match
+  percentage for each SAS output table and each column
+* `latest/star_confusion.csv`: SAS stars (rows) vs Python stars (columns)
+* `latest/accuracy_report.json`: the full machine-readable report
+* `accuracy_history.csv`: one row per run (verdict, accuracy, star
+  agreement), so you can track accuracy across translation attempts
+
+`latest/` is replaced on every run. The folder is gitignored.
+
 ---
 
 ## 🏗️ **Project Overview**
